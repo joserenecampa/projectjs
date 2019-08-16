@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <title>Campanario's System</title>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <form>
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="nome">Nome</label>
+                    <input v-model="form.nome" type="text" class="form-control" id="nome" placeholder="Digite o Nome">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="grupo">Grupo</label>
+                    <input v-model="form.grupo" type="text" class="form-control" id="grupo" placeholder="Grupo">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="entrada">Entrada</label>
+                    <input type="datetime-local" v-model="form.entrada" class="form-control" id="entrada"
+                        placeholder="Horário">
+                </div>
+            </div>
+            <button type="button" v-on:click="adicionar" class="btn btn-primary">Adicionar</button>
+            <button type="button" v-on:click="salvar" class="btn">Salvar</button>
+            <button type="button" v-on:click="carregar" class="btn">Carregar</button>
+        </form>
+        <br>
+        <div class="container">
+            <div class="row" v-for="grupo of grupos">
+                <div class="col">
+                    <small class="text-muted">{{grupo}} - Funcionários Trabalhando no Momento</small>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Nome</th>
+                                <th scope="col">Corrido</th>
+                                <th scope="col">Retorno</th>
+                                <th scope="col">Breaks</th>
+                                <th scope="col">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="p in pessoas">
+                                <td v-if="p.parada === 0 && p.grupo === grupo" scope="row">{{p.nome}}</td>
+                                <td v-if="p.parada === 0 && p.grupo === grupo">{{p.diferencaEntrada}}</td>
+                                <td v-if="p.parada === 0 && p.grupo === grupo">{{p.diferencaUltimaParada}}</td>
+                                <td v-if="p.parada === 0 && p.grupo === grupo">{{p.quantidadeParada}}</td>
+                                <td v-if="p.parada === 0 && p.grupo === grupo"><button type="button" v-on:click="parar(p)"
+                                        class="btn btn-primary">Parar</button>
+                                    <button type="button" v-on:click="remover(p)" class="btn btn-primary">X</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col">
+                    <small class="text-muted">{{grupo}} - Funcionários em Break no Momento</small>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Nome</th>
+                                <th scope="col">Corrido</th>
+                                <th scope="col">Break</th>
+                                <th scope="col">Breaks</th>
+                                <th scope="col">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="p in pessoas">
+                                <td v-if="p.parada > 0 && p.grupo === grupo" scope="row">{{p.nome}}</td>
+                                <td v-if="p.parada > 0 && p.grupo === grupo">{{p.diferencaEntrada}}</td>
+                                <td v-if="p.parada > 0 && p.grupo === grupo">{{p.diferencaParada}}</td>
+                                <td v-if="p.parada > 0 && p.grupo === grupo">{{p.quantidadeParada}}</td>
+                                <td v-if="p.parada > 0 && p.grupo === grupo"><button type="button" v-on:click="voltar(p)"
+                                        class="btn btn-primary">Voltar</button><button type="button"
+                                        v-on:click="remover(p)" class="btn btn-primary">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+        function formatarData(data) {
+            var date = new Date(data);
+            var duration = Date.now() - data;
+            var negativo = false;
+            if (duration < 0) {
+                negativo = true;
+                duration = duration * -1;
+            }
+            var seconds = Math.floor((duration / 1000) % 60);
+            var minutes = Math.floor((duration / (1000 * 60)) % 60);
+            var hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+            hours = (hours < 10) ? "0" + hours : hours;
+            minutes = (minutes < 10) ? "0" + minutes : minutes;
+            seconds = (seconds < 10) ? "0" + seconds : seconds;
+            complete_hours = (date.getHours() < 10) ? "0" + date.getHours() : date.getHours();
+            complete_minutes = (date.getMinutes() < 10) ? "0" + date.getMinutes() : date.getMinutes();
+            return (!negativo ? complete_hours + ":" + complete_minutes + " - ": "R ") + hours + ":" + minutes;// + ":" + seconds;
+        }
+        function horaAtual() {
+            return Date.now();
+        }
+        function ordernar(listaPessoas) {
+            listaPessoas = listaPessoas.slice().sort(function (a, b) {
+                var valueA = a.retorno > 0 ? a.retorno : a.entrada;
+                var valueB = b.retorno > 0 ? b.retorno : b.entrada;
+                if (valueA > valueB) {
+                    return 1;
+                } else {
+                    return -1;
+                }
+            });
+            return listaPessoas;
+        }
+        function groups(listaPessoas) { return [...new Set(listaPessoas.map(g => g.grupo))]; }
+        var app = new Vue({
+            el: '#app',
+            data: {
+                form: {
+                    nome: '',
+                    grupo: '',
+                    entrada: 0
+                },
+                pessoa: {
+                    nome: '',
+                    grupo: '',
+                    entradaFormatada: '',
+                    paradaFormatada: '',
+                    diferencaEntrada: 0,
+                    diferencaParada: 0,
+                    entrada: 0,
+                    parada: 0,
+                    quantidadeParada: 0,
+                    retorno: 0
+                },
+                pessoas: [],
+                grupos: []
+            },
+            created: function () {
+                this.form.entrada = Date.now();
+                this.form.entrada = new Date(this.form.entrada).toISOString().replace("Z", "").split(".")[0];
+                setInterval(() => {
+                    this.pessoas.forEach(function (p) {
+                        p.diferencaEntrada = formatarData(p.entrada);
+                        if (p.retorno > 0) {
+                            p.diferencaUltimaParada = formatarData(p.retorno);
+                        }
+                        if (p.parada > 0) {
+                            p.diferencaParada = formatarData(p.parada);
+                            p.paradaFormatada = new Date(p.parada).toISOString().replace("Z", "").split(".")[0];
+                        }
+                    });
+                }, 1000);
+            },
+            methods: {
+                adicionar: function (event) {
+                    var p = {};
+                    Object.assign(p, this.pessoa);
+                    p.nome = this.form.nome;
+                    p.entrada = Date.parse(this.form.entrada);
+                    p.grupo = this.form.grupo;
+                    this.pessoas.push(p);
+                    this.pessoas = ordernar(this.pessoas);
+                    this.grupos = groups(this.pessoas);
+                },
+                parar: function (pessoa, event) {
+                    pessoa.parada = horaAtual();
+                    pessoa.quantidadeParada = pessoa.quantidadeParada + 1;
+                },
+                remover: function (pessoa, event) {
+                    if (confirm('Deseja remover ' + pessoa.nome + '?')) {
+                        this.pessoas = this.pessoas.filter(function (v) { return v != pessoa; });
+                        this.grupos = groups(this.pessoas);
+                    }
+                },
+                salvar: function () {
+                    localStorage.setItem('pessoas', JSON.stringify(this.pessoas));
+                },
+                carregar: function () {
+                    this.pessoas = JSON.parse(localStorage.getItem('pessoas'));
+                    this.pessoas = ordernar(this.pessoas);
+                    this.grupos = groups(this.pessoas);
+                },
+                voltar: function (pessoa, event) {
+                    pessoa.retorno = horaAtual();
+                    pessoa.parada = 0;
+                    this.pessoas = ordernar(this.pessoas);
+                }
+            }
+        })
+    </script>
+</body>
+
+</html>
