@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.css">
+    <title>Campanario's System</title>
+    <style>
+        .vis-item.orange { background-color: orange; border-color: orange; }    
+        .vis-item.green { background-color: green; border-color: green; }    
+        .vis-item.red { background-color: red; border-color: red; }    
+        .vis-item.blue { background-color: blue; border-color: blue; }    
+    </style>
+</head>
+
+<body>
+    
+    <div id="app">
+        <form>
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="nome">Employee</label>
+                    <input v-model="form.nome" type="text" class="form-control" id="nome" placeholder="Employee's name">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="grupo">Sector</label>
+                    <select class="form-control form-control-sm" v-model="form.grupo">
+                        <option>Wipedown</option>
+                        <option>Prep</option>
+                        <option>Detail</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
+                </div>
+            </div>
+        </form>
+        <div id="TimeLine"></div>
+        <br>
+        <br>
+            <div>
+                <form class="form-inline">
+                    <div class="form-group mb-2">
+                        <button type="button" v-on:click="apagarSelecionados()"
+                            class="btn btn-primary btn-sm">X</button>
+                        <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected
+                            to</button>
+                    </div>
+                    <div class="form-group mx-sm-3 mb-2">
+                        <select class="form-control form-control-sm" v-model="form.moverPara">
+                            <option>Wipedown</option>
+                            <option>Prep</option>
+                            <option>Detail</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <br>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.min.js"></script>
+    <script src="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.js"></script>
+    <script>
+        var app = new Vue({
+            el: '#app',
+            data: {
+                form: {
+                    nome: '',
+                    grupo: '',
+                    moverPara: '',
+                    entrada: 0
+                },
+            },
+            methods: {
+                adicionar: function (event) {
+                    var idSubGroup = groups.add({employeeName: this.form.nome, checked: false})[0];
+                    var c = montarCheckBox(idSubGroup, this.form.nome, false);
+                    groups.update({id: idSubGroup, content: c});
+                    items.add({group: idSubGroup, start: moment().hours(9).minutes(0).seconds(0).milliseconds(0), end: moment().hours(17).minutes(30).seconds(0).milliseconds(0), type: 'background'});
+                    items.add({group: idSubGroup, start: moment().hours(9).minutes(5).seconds(0).milliseconds(0), end: moment().hours(12).minutes(0).seconds(0).milliseconds(0), className: 'green'});
+                    items.add({group: idSubGroup, start: moment().hours(12).minutes(0).seconds(0).milliseconds(0), end: moment().hours(12).minutes(40).seconds(0).milliseconds(0), className: 'orange'});
+                    items.add({group: idSubGroup, start: moment().hours(12).minutes(40).seconds(0).milliseconds(0), end: moment().hours(15).minutes(30).seconds(0).milliseconds(0), className: 'red'});
+                    items.add({group: idSubGroup, start: moment().hours(15).minutes(30).seconds(0).milliseconds(0), end: moment().hours(17).minutes(28).seconds(0).milliseconds(0), className: 'blue'});
+                    var group = getGroupByName(this.form.grupo);
+                    var idGroup;
+                    if (group.length == 0) {
+                        idGroup = groups.add({content: this.form.grupo, nestedGroups: []})[0];
+                    } else {
+                        idGroup = group[0].id;
+                    }
+                    groups.get(idGroup).nestedGroups.push(idSubGroup);
+                    timeline.setGroups(groups);
+                },
+                mover: function (event) {
+                    var subGrupos = groups.get({
+                        filter: function (item) {
+                            return (item.checked);
+                        }
+                    });
+                    var moverTo = getGroupByName(this.form.moverPara);
+                    if (moverTo.length == 0) {
+                        moverTo = groups.add({content: this.form.moverPara, nestedGroups: []})[0];
+                    } else {
+                        moverTo = moverTo[0];
+                    }
+                    subGrupos.forEach(function (gr) {
+                        var parentGroup = groups.get(gr.nestedInGroup);
+                        parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                        groups.update(parentGroup);
+                        gr.nestedInGroup = moverTo.id;
+                        groups.update(gr);
+                        moverTo.nestedGroups.push(gr.id);
+                        groups.update(moverTo);
+                    });
+                    timeline.setGroups(groups);
+                }
+            }
+        })
+        var items = new vis.DataSet([]);
+        var timeline = null;
+        var groups = new vis.DataSet([]);
+        var container = document.getElementById("TimeLine");
+        var options = {
+            stack: false,
+            orientation: {axis: 'both'},
+            min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            zoomMin: 1000 * 60 * 60 * 14,
+            zoomMax: 1000 * 60 * 60 * 14
+        };
+        timeline = new vis.Timeline(container);
+        timeline.setOptions(options);
+        timeline.setGroups(groups);
+        timeline.setItems(items);
+        function getGroupByName(groupName) {
+            return groups.get({filter: function (item) {
+                return (item.content == groupName);
+                }
+            });
+        }
+        function montarCheckBox(idSubGroup, employeeName, checked) {
+            return "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">" + employeeName;
+        }
+        function checkme(component, idSubGroup) {
+            var subGrupo = groups.get(idSubGroup);
+            var c = montarCheckBox(subGrupo.id, subGrupo.employeeName, component.checked);
+            groups.update({id: idSubGroup, content: c, checked: !subGrupo.checked});
+        }
+    </script>
+</body>
+</html>
