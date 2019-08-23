@@ -88,7 +88,7 @@
             methods: {
                 adicionar: function (event) {
                     var idSubGroup = groups.add({employeeName: this.form.nome, checked: false})[0];
-                    var c = montarCheckBox(idSubGroup, this.form.nome, false);
+                    var c = montarNome(idSubGroup, this.form.nome, false);
                     groups.update({id: idSubGroup, content: c});
                     items.add({group: idSubGroup, start: moment().hours(9).minutes(0).seconds(0).milliseconds(0), end: moment().hours(17).minutes(30).seconds(0).milliseconds(0), type: 'background'});
                     items.add({group: idSubGroup, start: moment().hours(9).minutes(5).seconds(0).milliseconds(0), end: moment().hours(12).minutes(0).seconds(0).milliseconds(0), className: 'green'});
@@ -126,7 +126,19 @@
                         moverTo.nestedGroups.push(gr.id);
                         groups.update(moverTo);
                     });
-                    timeline.setGroups(groups);
+                },
+                apagarSelecionados: function (event) {
+                    var subGrupos = groups.get({
+                        filter: function (item) {
+                            return (item.checked);
+                        }
+                    });
+                    subGrupos.forEach(function (gr) {
+                        var parentGroup = groups.get(gr.nestedInGroup);
+                        parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                        groups.update(parentGroup);
+                        groups.remove(gr.id);
+                    });
                 }
             }
         })
@@ -139,8 +151,8 @@
             orientation: {axis: 'both'},
             min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
             max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
-            zoomMin: 1000 * 60 * 60 * 14,
-            zoomMax: 1000 * 60 * 60 * 14
+            zoomMin: 1000 * 60 * 60 * 1,
+            zoomMax: 1000 * 60 * 60 * 30
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
@@ -152,13 +164,21 @@
                 }
             });
         }
-        function montarCheckBox(idSubGroup, employeeName, checked) {
-            return "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">" + employeeName;
+        function montarNome(idSubGroup, employeeName, checked) {
+            var contentHtml = "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">";
+            contentHtml = contentHtml + employeeName + "<br/>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-info\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-dark\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
+            return contentHtml;
         }
         function checkme(component, idSubGroup) {
             var subGrupo = groups.get(idSubGroup);
-            var c = montarCheckBox(subGrupo.id, subGrupo.employeeName, component.checked);
+            var c = montarNome(subGrupo.id, subGrupo.employeeName, component.checked);
             groups.update({id: idSubGroup, content: c, checked: !subGrupo.checked});
+        }
+        function stopme(component, idSubGroup) {
         }
     </script>
 </body>
