@@ -17,7 +17,26 @@
 </head>
 
 <body>
-    
+<!-- Modal -->
+<div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">Modal title</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          ...
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>    
     <div id="app">
         <form>
             <div class="form-row">
@@ -133,20 +152,36 @@
         var options = {
             stack: false,
             orientation: {axis: 'both'},
-            //maxHeight: 500,
+            //axHeight: 500,
             //horizontalScroll: true,
             //verticalScroll: true,            
-            min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
-            max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
-            zoomMin: 1000 * 60 * 60 * 14,
-            zoomMax: 1000 * 60 * 60 * 14
+            //min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            //max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            //zoomMin: 1000 * 60 * 60 * 6,
+            //zoomMax: 1000 * 60 * 60 * 6
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
         timeline.setGroups(groups);
         timeline.setItems(items);
         timeline.on('currentTimeTick', actionFired);
+        timeline.on('click', showModal);
+        function showModal(properties) {
+            if (properties && properties.group && properties.what == 'group-label') {
+                var group = groups.get(properties.group);
+                $('#exampleModal').modal('show');
+            }
+        }
         function actionFired (properties) {
+            var results = items.get({filter: function (item) {
+                return (item.open);
+            }});
+            results.forEach(function (item) {
+                if (item) {
+                    item.end = moment();
+                    items.update(item);
+                }
+            });
         }
         function getLastOpenItemBySubGroup(groupId) {
             var results = items.get({filter: function (item) {
@@ -165,15 +200,16 @@
             });
         }
         function montarNome(idSubGroup, employeeName, checked) {
-            var contentHtml = "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">";
+            var contentHtml = "";
+            //contentHtml = contentHtml + "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">";
             contentHtml = contentHtml + employeeName;
-            contentHtml = contentHtml + "<br/>";
-            contentHtml = contentHtml + "<div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-success\" onclick='startme(\"" + idSubGroup + "\");'>St</button>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='breakme(\"" + idSubGroup + "\");'>Br</button>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='lunchme(\"" + idSubGroup + "\");'>Lu</button>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-dark\" onclick='homeme(\"" + idSubGroup + "\");'>Ho</button>";
-            contentHtml = contentHtml + "</div>";
+            //contentHtml = contentHtml + "<br/>";
+            //contentHtml = contentHtml + "<div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
+            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-success\" onclick='startme(\"" + idSubGroup + "\");'>13:50</button>";
+            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='breakme(\"" + idSubGroup + "\");'>13:50</button>";
+            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='lunchme(\"" + idSubGroup + "\");'>13:50</button>";
+            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-dark\" onclick='homeme(\"" + idSubGroup + "\");'>Ho</button>";
+            //contentHtml = contentHtml + "</div>";
             return contentHtml;
         }
         function checkme(component, idSubGroup) {
@@ -182,19 +218,41 @@
             groups.update({id: idSubGroup, content: c, checked: !subGrupo.checked});
         }
         function closeLastItem(idSubGroup, hora, minuto) {
+            if (!hora) hora = getHora(hora);
+            if (!minuto) minuto = getMinuto(minuto);
             var item = getLastOpenItemBySubGroup(idSubGroup);
-            if (!hora) hora = app.form.hora;
-            if (!minuto) minuto = app.form.minuto;
             if (item) {
-                item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0).subtract(1, 'minutes');
+                item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
                 item.open = false;
                 items.update(item);
             }
         }
+        function getHora(hora) {
+            if (!hora) {
+                if (!app || !app.form || !app.form.hora) {
+                    hora = moment().hours();
+                } else {
+                    hora = app.form.hora;
+                }
+            }
+            console.log("getHora(): " + hora);
+            return hora;
+        }
+        function getMinuto(minuto) {
+            if (!minuto) {
+                if (!app || !app.form || !app.form.minuto) {
+                    minuto = moment().minutes();
+                } else {
+                    minuto = app.form.minuto;
+                }
+            }
+            console.log("getMinuto(): " + minuto);
+            return minuto;
+        }
         function startme(idSubGroup, hora, minuto) {
+            if (!hora) hora = getHora(hora);
+            if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
-            if (!hora) hora = app.form.hora;
-            if (!minuto) minuto = app.form.minuto;
             items.add({
                 group: idSubGroup,
                 open: true,
@@ -204,9 +262,9 @@
             });
         }
         function breakme(idSubGroup, hora, minuto) {
+            if (!hora) hora = getHora(hora);
+            if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
-            if (!hora) hora = app.form.hora;
-            if (!minuto) minuto = app.form.minuto;
             items.add({
                 group: idSubGroup, 
                 open: true, 
@@ -216,9 +274,9 @@
             });
         }
         function lunchme(idSubGroup, hora, minuto) {
+            if (!hora) hora = getHora(hora);
+            if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
-            if (!hora) hora = app.form.hora;
-            if (!minuto) minuto = app.form.minuto;
             items.add({
                 group: idSubGroup, 
                 open: true, 
@@ -228,9 +286,9 @@
             });
         }
         function homeme(idSubGroup, hora, minuto) {
+            if (!hora) hora = getHora(hora);
+            if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
-            if (!hora) hora = app.form.hora;
-            if (!minuto) minuto = app.form.minuto;
             items.add({
                 group: idSubGroup, 
                 open: false, 
@@ -266,31 +324,23 @@
         
         var idRene = adicionar('JOSE RENE C.', 'Wipedown', 11);
         startme(idRene, 11, 00);
-        lunchme(idRene, 15, 00);
-        startme(idRene, 16, 00);
-        breakme(idRene, 18, 00);
-        startme(idRene, 18, 15);
-        homeme(idRene, 19, 0);
+        breakme(idRene, 13, 10);
+        startme(idRene, 13, 20);
 
         var idJunior = adicionar('ANTONIO PAULINO J.', 'Wipedown', 8);
         startme(idJunior, 8, 00);
-        lunchme(idJunior, 12, 00);
-        startme(idJunior, 14, 00);
-        homeme(idJunior, 16, 0);
 
         var idLivia = adicionar('LIVIA BAZZI C.', 'Prep', 8, 30);
         startme(idLivia, 8, 30);
-        breakme(idLivia, 9, 15);
-        startme(idLivia, 9, 45);
-        lunchme(idLivia, 12, 00);
-        startme(idLivia, 12, 58);
-        breakme(idLivia, 14, 27);
-        startme(idLivia, 14, 43);
-        homeme(idLivia, 16, 27);
 
         var idAmanda = adicionar('AMANDA BAZZI C.', 'Prep', 9,15);
+        startme(idAmanda, 9, 15);
+
         var idWanessa = adicionar('WANESSA COSTA C.', 'Detail', 9);
+        startme(idWanessa, 9, 0);
+
         var idLuana = adicionar('LUANA COSTA C.', 'Detail', 10, 45);
+        //startme(idLuana, 10, 45);
 
     </script>
 </body>
