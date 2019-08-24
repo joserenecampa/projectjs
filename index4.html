@@ -18,7 +18,7 @@
 
 <body>
     
-    <div class="container" id="app">
+    <div id="app">
         <form>
             <div class="form-row">
                 <div class="col">
@@ -133,15 +133,21 @@
         var options = {
             stack: false,
             orientation: {axis: 'both'},
+            //maxHeight: 500,
+            //horizontalScroll: true,
+            //verticalScroll: true,            
             min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
             max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
             zoomMin: 1000 * 60 * 60 * 14,
-            zoomMax: 1000 * 60 * 60 * 14,
+            zoomMax: 1000 * 60 * 60 * 14
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
         timeline.setGroups(groups);
         timeline.setItems(items);
+        timeline.on('currentTimeTick', actionFired);
+        function actionFired (properties) {
+        }
         function getLastOpenItemBySubGroup(groupId) {
             var results = items.get({filter: function (item) {
                 return (item.group == groupId && item.open);
@@ -160,7 +166,9 @@
         }
         function montarNome(idSubGroup, employeeName, checked) {
             var contentHtml = "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">";
-            contentHtml = contentHtml + employeeName + "<br/><div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
+            contentHtml = contentHtml + employeeName;
+            contentHtml = contentHtml + "<br/>";
+            contentHtml = contentHtml + "<div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
             contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-success\" onclick='startme(\"" + idSubGroup + "\");'>St</button>";
             contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='breakme(\"" + idSubGroup + "\");'>Br</button>";
             contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='lunchme(\"" + idSubGroup + "\");'>Lu</button>";
@@ -189,7 +197,8 @@
             if (!minuto) minuto = app.form.minuto;
             items.add({
                 group: idSubGroup,
-                open: true, 
+                open: true,
+                typeOfWork: 'work',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
                 className: 'green'
             });
@@ -201,6 +210,7 @@
             items.add({
                 group: idSubGroup, 
                 open: true, 
+                typeOfWork: 'break',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
                 className: 'red'
             });
@@ -212,6 +222,7 @@
             items.add({
                 group: idSubGroup, 
                 open: true, 
+                typeOfWork: 'lunch',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
                 className: 'orange'
             });
@@ -223,6 +234,7 @@
             items.add({
                 group: idSubGroup, 
                 open: false, 
+                typeOfWork: 'gohome',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0)
             });
         }
@@ -274,7 +286,7 @@
         startme(idLivia, 12, 58);
         breakme(idLivia, 14, 27);
         startme(idLivia, 14, 43);
-        homeme(idLivia, 16, 0);
+        homeme(idLivia, 16, 27);
 
         var idAmanda = adicionar('AMANDA BAZZI C.', 'Prep', 9,15);
         var idWanessa = adicionar('WANESSA COSTA C.', 'Detail', 9);
