@@ -18,48 +18,46 @@
 
 <body>
     
-    <div id="app">
+    <div class="container" id="app">
         <form>
             <div class="form-row">
-                <div class="form-group col-md-4">
-                    <label for="nome">Employee</label>
+                <div class="col">
                     <input v-model="form.nome" type="text" class="form-control" id="nome" placeholder="Employee's name">
                 </div>
-                <div class="form-group col-md-4">
-                    <label for="grupo">Sector</label>
-                    <select class="form-control form-control-sm" v-model="form.grupo">
+                <div class="col">
+                    <select class="form-control" v-model="form.grupo">
                         <option>Wipedown</option>
                         <option>Prep</option>
                         <option>Detail</option>
                     </select>
                 </div>
-                <div class="form-group col-md-4">
+                <div class="col">
                     <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
+                </div>
+                <div class="col">
+                    <input v-model="form.hora" type="text" class="form-control" id="hora" placeholder="Hora">
+                </div>
+                <div class="col">
+                    <input v-model="form.minuto" type="text" class="form-control" id="minuto" placeholder="Minuto">
                 </div>
             </div>
         </form>
         <div id="TimeLine"></div>
-        <br>
-        <br>
-            <div>
-                <form class="form-inline">
-                    <div class="form-group mb-2">
-                        <button type="button" v-on:click="apagarSelecionados()"
-                            class="btn btn-primary btn-sm">X</button>
-                        <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected
-                            to</button>
-                    </div>
-                    <div class="form-group mx-sm-3 mb-2">
-                        <select class="form-control form-control-sm" v-model="form.moverPara">
-                            <option>Wipedown</option>
-                            <option>Prep</option>
-                            <option>Detail</option>
-                        </select>
-                    </div>
-                </form>
+        <form>
+            <div class="form-row">
+                <div class="col">
+                    <button type="button" v-on:click="apagarSelecionados()" class="btn btn-primary btn-sm">X</button>
+                    <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected to</button>
+                </div>
+                <div class="col">
+                    <select class="form-control" v-model="form.moverPara">
+                        <option>Wipedown</option>
+                        <option>Prep</option>
+                        <option>Detail</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        <br>
+        </form>
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
         integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
@@ -82,28 +80,14 @@
                     nome: '',
                     grupo: '',
                     moverPara: '',
+                    hora: '',
+                    minuto: '',
                     entrada: 0
                 },
             },
             methods: {
                 adicionar: function (event) {
-                    var idSubGroup = groups.add({employeeName: this.form.nome, checked: false})[0];
-                    var c = montarNome(idSubGroup, this.form.nome, false);
-                    groups.update({id: idSubGroup, content: c});
-                    items.add({group: idSubGroup, start: moment().hours(9).minutes(0).seconds(0).milliseconds(0), end: moment().hours(17).minutes(30).seconds(0).milliseconds(0), type: 'background'});
-                    items.add({group: idSubGroup, start: moment().hours(9).minutes(5).seconds(0).milliseconds(0), end: moment().hours(12).minutes(0).seconds(0).milliseconds(0), className: 'green'});
-                    items.add({group: idSubGroup, start: moment().hours(12).minutes(0).seconds(0).milliseconds(0), end: moment().hours(12).minutes(40).seconds(0).milliseconds(0), className: 'orange'});
-                    items.add({group: idSubGroup, start: moment().hours(12).minutes(40).seconds(0).milliseconds(0), end: moment().hours(15).minutes(30).seconds(0).milliseconds(0), className: 'red'});
-                    items.add({group: idSubGroup, start: moment().hours(15).minutes(30).seconds(0).milliseconds(0), end: moment().hours(17).minutes(28).seconds(0).milliseconds(0), className: 'blue'});
-                    var group = getGroupByName(this.form.grupo);
-                    var idGroup;
-                    if (group.length == 0) {
-                        idGroup = groups.add({content: this.form.grupo, nestedGroups: []})[0];
-                    } else {
-                        idGroup = group[0].id;
-                    }
-                    groups.get(idGroup).nestedGroups.push(idSubGroup);
-                    timeline.setGroups(groups);
+                    adicionar(this.form.nome, this.form.grupo);
                 },
                 mover: function (event) {
                     var subGrupos = groups.get({
@@ -151,13 +135,23 @@
             orientation: {axis: 'both'},
             min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
             max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
-            zoomMin: 1000 * 60 * 60 * 1,
-            zoomMax: 1000 * 60 * 60 * 30
+            zoomMin: 1000 * 60 * 60 * 14,
+            zoomMax: 1000 * 60 * 60 * 14,
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
         timeline.setGroups(groups);
         timeline.setItems(items);
+        function getLastOpenItemBySubGroup(groupId) {
+            var results = items.get({filter: function (item) {
+                return (item.group == groupId && item.open);
+            }});
+            if (results.length > 0) {
+                return results[0];
+            } else {
+                return null;
+            }
+        }
         function getGroupByName(groupName) {
             return groups.get({filter: function (item) {
                 return (item.content == groupName);
@@ -166,11 +160,12 @@
         }
         function montarNome(idSubGroup, employeeName, checked) {
             var contentHtml = "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">";
-            contentHtml = contentHtml + employeeName + "<br/>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-info\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
-            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-dark\" onclick='stopme(this,\"" + idSubGroup + "\");'>&nbsp;</button>";
+            contentHtml = contentHtml + employeeName + "<br/><div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-success\" onclick='startme(\"" + idSubGroup + "\");'>St</button>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='breakme(\"" + idSubGroup + "\");'>Br</button>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='lunchme(\"" + idSubGroup + "\");'>Lu</button>";
+            contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-dark\" onclick='homeme(\"" + idSubGroup + "\");'>Ho</button>";
+            contentHtml = contentHtml + "</div>";
             return contentHtml;
         }
         function checkme(component, idSubGroup) {
@@ -178,8 +173,113 @@
             var c = montarNome(subGrupo.id, subGrupo.employeeName, component.checked);
             groups.update({id: idSubGroup, content: c, checked: !subGrupo.checked});
         }
-        function stopme(component, idSubGroup) {
+        function closeLastItem(idSubGroup, hora, minuto) {
+            var item = getLastOpenItemBySubGroup(idSubGroup);
+            if (!hora) hora = app.form.hora;
+            if (!minuto) minuto = app.form.minuto;
+            if (item) {
+                item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0).subtract(1, 'minutes');
+                item.open = false;
+                items.update(item);
+            }
         }
+        function startme(idSubGroup, hora, minuto) {
+            closeLastItem(idSubGroup, hora, minuto);
+            if (!hora) hora = app.form.hora;
+            if (!minuto) minuto = app.form.minuto;
+            items.add({
+                group: idSubGroup,
+                open: true, 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
+                className: 'green'
+            });
+        }
+        function breakme(idSubGroup, hora, minuto) {
+            closeLastItem(idSubGroup, hora, minuto);
+            if (!hora) hora = app.form.hora;
+            if (!minuto) minuto = app.form.minuto;
+            items.add({
+                group: idSubGroup, 
+                open: true, 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
+                className: 'red'
+            });
+        }
+        function lunchme(idSubGroup, hora, minuto) {
+            closeLastItem(idSubGroup, hora, minuto);
+            if (!hora) hora = app.form.hora;
+            if (!minuto) minuto = app.form.minuto;
+            items.add({
+                group: idSubGroup, 
+                open: true, 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
+                className: 'orange'
+            });
+        }
+        function homeme(idSubGroup, hora, minuto) {
+            closeLastItem(idSubGroup, hora, minuto);
+            if (!hora) hora = app.form.hora;
+            if (!minuto) minuto = app.form.minuto;
+            items.add({
+                group: idSubGroup, 
+                open: false, 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0)
+            });
+        }
+        function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
+            var idSubGroup = groups.add({employeeName: name, checked: false})[0];
+            var c = montarNome(idSubGroup, name, false);
+            groups.update({id: idSubGroup, content: c});
+            if (!horaInicial) horaInicial = 9;
+            if (!minutoInicial) minutoInicial = 0;
+            if (!horaFinal) horaFinal = horaInicial + 8;
+            if (!minutoFinal) minutoFinal = minutoInicial;
+            items.add({
+                group: idSubGroup, 
+                start: moment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0), 
+                end: moment().hours(horaFinal).minutes(minutoFinal).seconds(0).milliseconds(0), 
+                type: 'background'
+            });
+            var group = getGroupByName(sector);
+            var idGroup;
+            if (group.length == 0) {
+                idGroup = groups.add({content: sector, nestedGroups: []})[0];
+            } else {
+                idGroup = group[0].id;
+            }
+            groups.get(idGroup).nestedGroups.push(idSubGroup);
+            timeline.setGroups(groups);
+            return idSubGroup;
+        }
+        
+        var idRene = adicionar('JOSE RENE C.', 'Wipedown', 11);
+        startme(idRene, 11, 00);
+        lunchme(idRene, 15, 00);
+        startme(idRene, 16, 00);
+        breakme(idRene, 18, 00);
+        startme(idRene, 18, 15);
+        homeme(idRene, 19, 0);
+
+        var idJunior = adicionar('ANTONIO PAULINO J.', 'Wipedown', 8);
+        startme(idJunior, 8, 00);
+        lunchme(idJunior, 12, 00);
+        startme(idJunior, 14, 00);
+        homeme(idJunior, 16, 0);
+
+        var idLivia = adicionar('LIVIA BAZZI C.', 'Prep', 8, 30);
+        startme(idLivia, 8, 30);
+        breakme(idLivia, 9, 15);
+        startme(idLivia, 9, 45);
+        lunchme(idLivia, 12, 00);
+        startme(idLivia, 12, 58);
+        breakme(idLivia, 14, 27);
+        startme(idLivia, 14, 43);
+        homeme(idLivia, 16, 0);
+
+        var idAmanda = adicionar('AMANDA BAZZI C.', 'Prep', 9,15);
+        var idWanessa = adicionar('WANESSA COSTA C.', 'Detail', 9);
+        var idLuana = adicionar('LUANA COSTA C.', 'Detail', 10, 45);
+
     </script>
 </body>
 </html>
