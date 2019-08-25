@@ -9,35 +9,84 @@
     <link rel="stylesheet" href="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.css">
     <title>Campanario's System</title>
     <style>
-        .vis-item.orange { background-color: orange; border-color: orange; }    
-        .vis-item.green { background-color: green; border-color: green; }    
-        .vis-item.red { background-color: red; border-color: red; }    
-        .vis-item.blue { background-color: blue; border-color: blue; }    
+        .vis-item.orange {
+            background-color: orange;
+            border-color: orange;
+        }
+
+        .vis-item.green {
+            background-color: green;
+            border-color: green;
+        }
+
+        .vis-item.red {
+            background-color: red;
+            border-color: red;
+        }
+
+        .vis-item.blue {
+            background-color: blue;
+            border-color: blue;
+        }
     </style>
 </head>
 
 <body>
-<!-- Modal -->
-<div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLabel">Modal title</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          ...
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary">Save changes</button>
-        </div>
-      </div>
-    </div>
-  </div>    
     <div id="app">
+        <!-- Modal -->
+        <div class="modal fade" id="employeeModal" tabindex="15" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Timesheet</h5>
+                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <form class="form-inline">
+                            <div class="form-group col-sm-3">
+                                <select class="form-control">
+                                    <option>Start</option>
+                                    <option>Break</option>
+                                    <option>Lunch</option>
+                                    <option>Home</option>
+                                </select>
+                            </div>
+                            <div class="form-group col-sm-3">
+                                <input type="text" class="form-control" id="start" placeholder="Start">
+                            </div>
+                            <div class="form-group col-sm-3">
+                                <input type="text" class="form-control" id="end" placeholder="End">
+                            </div>
+                        </form>
+                        <form class="form-inline">
+                                <div class="form-group col-sm-3">
+                                    <select class="form-control">
+                                        <option>Start</option>
+                                        <option>Break</option>
+                                        <option>Lunch</option>
+                                        <option>Home</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-3">
+                                    <input type="text" class="form-control" id="start" placeholder="Start">
+                                </div>
+                                <div class="form-group col-sm-3">
+                                    <input type="text" class="form-control" id="end" placeholder="End">
+                                </div>
+                            </form>
+                        </div>
+                    <div class="modal-footer">
+                        <div class="btn-group" role="group" aria-label="Basic example">
+                            <button type="button" class="btn btn-success" onclick="startme(modalIdGroup)">Start or
+                                Back</button>
+                            <button type="button" class="btn btn-danger" onclick="breakme(modalIdGroup)">Break</button>
+                            <button type="button" class="btn btn-warning" onclick="lunchme(modalIdGroup)">Lunch</button>
+                            <button type="button" class="btn btn-dark" onclick="homeme(modalIdGroup)">Go Home</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <form>
             <div class="form-row">
                 <div class="col">
@@ -92,6 +141,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.min.js"></script>
     <script src="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.js"></script>
     <script>
+        var modalIdGroup = '';
         var app = new Vue({
             el: '#app',
             data: {
@@ -102,7 +152,7 @@
                     hora: '',
                     minuto: '',
                     entrada: 0
-                },
+                }
             },
             methods: {
                 adicionar: function (event) {
@@ -116,7 +166,7 @@
                     });
                     var moverTo = getGroupByName(this.form.moverPara);
                     if (moverTo.length == 0) {
-                        moverTo = groups.add({content: this.form.moverPara, nestedGroups: []})[0];
+                        moverTo = groups.add({ content: this.form.moverPara, nestedGroups: [] })[0];
                     } else {
                         moverTo = moverTo[0];
                     }
@@ -151,7 +201,7 @@
         var container = document.getElementById("TimeLine");
         var options = {
             stack: false,
-            orientation: {axis: 'both'},
+            orientation: { axis: 'both' },
             //axHeight: 500,
             //horizontalScroll: true,
             //verticalScroll: true,            
@@ -169,13 +219,16 @@
         function showModal(properties) {
             if (properties && properties.group && properties.what == 'group-label') {
                 var group = groups.get(properties.group);
-                $('#exampleModal').modal('show');
+                modalIdGroup = group.id;
+                $('#employeeModal').modal('show');
             }
         }
-        function actionFired (properties) {
-            var results = items.get({filter: function (item) {
-                return (item.open);
-            }});
+        function actionFired(properties) {
+            var results = items.get({
+                filter: function (item) {
+                    return (item.open);
+                }
+            });
             results.forEach(function (item) {
                 if (item) {
                     item.end = moment();
@@ -184,9 +237,11 @@
             });
         }
         function getLastOpenItemBySubGroup(groupId) {
-            var results = items.get({filter: function (item) {
-                return (item.group == groupId && item.open);
-            }});
+            var results = items.get({
+                filter: function (item) {
+                    return (item.group == groupId && item.open);
+                }
+            });
             if (results.length > 0) {
                 return results[0];
             } else {
@@ -194,14 +249,15 @@
             }
         }
         function getGroupByName(groupName) {
-            return groups.get({filter: function (item) {
-                return (item.content == groupName);
+            return groups.get({
+                filter: function (item) {
+                    return (item.content == groupName);
                 }
             });
         }
         function montarNome(idSubGroup, employeeName, checked) {
             var contentHtml = "";
-            //contentHtml = contentHtml + "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked?'checked':'')+ ">";
+            contentHtml = contentHtml + "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked ? 'checked' : '') + ">";
             contentHtml = contentHtml + employeeName;
             //contentHtml = contentHtml + "<br/>";
             //contentHtml = contentHtml + "<div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
@@ -215,7 +271,7 @@
         function checkme(component, idSubGroup) {
             var subGrupo = groups.get(idSubGroup);
             var c = montarNome(subGrupo.id, subGrupo.employeeName, component.checked);
-            groups.update({id: idSubGroup, content: c, checked: !subGrupo.checked});
+            groups.update({ id: idSubGroup, content: c, checked: !subGrupo.checked });
         }
         function closeLastItem(idSubGroup, hora, minuto) {
             if (!hora) hora = getHora(hora);
@@ -235,7 +291,6 @@
                     hora = app.form.hora;
                 }
             }
-            console.log("getHora(): " + hora);
             return hora;
         }
         function getMinuto(minuto) {
@@ -246,7 +301,6 @@
                     minuto = app.form.minuto;
                 }
             }
-            console.log("getMinuto(): " + minuto);
             return minuto;
         }
         function startme(idSubGroup, hora, minuto) {
@@ -257,63 +311,67 @@
                 group: idSubGroup,
                 open: true,
                 typeOfWork: 'work',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
                 className: 'green'
             });
+            $('#employeeModal').modal('hide');
         }
         function breakme(idSubGroup, hora, minuto) {
             if (!hora) hora = getHora(hora);
             if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
             items.add({
-                group: idSubGroup, 
-                open: true, 
+                group: idSubGroup,
+                open: true,
                 typeOfWork: 'break',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
                 className: 'red'
             });
+            $('#employeeModal').modal('hide');
         }
         function lunchme(idSubGroup, hora, minuto) {
             if (!hora) hora = getHora(hora);
             if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
             items.add({
-                group: idSubGroup, 
-                open: true, 
+                group: idSubGroup,
+                open: true,
                 typeOfWork: 'lunch',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0), 
+                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
                 className: 'orange'
             });
+            $('#employeeModal').modal('hide');
         }
         function homeme(idSubGroup, hora, minuto) {
             if (!hora) hora = getHora(hora);
             if (!minuto) minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
             items.add({
-                group: idSubGroup, 
-                open: false, 
+                group: idSubGroup,
+                open: false,
                 typeOfWork: 'gohome',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0)
             });
+            $('#employeeModal').modal('hide');
         }
         function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
-            var idSubGroup = groups.add({employeeName: name, checked: false})[0];
+            var idSubGroup = groups.add({ employeeName: name, checked: false })[0];
             var c = montarNome(idSubGroup, name, false);
-            groups.update({id: idSubGroup, content: c});
+            groups.update({ id: idSubGroup, content: c });
             if (!horaInicial) horaInicial = 9;
             if (!minutoInicial) minutoInicial = 0;
             if (!horaFinal) horaFinal = horaInicial + 8;
             if (!minutoFinal) minutoFinal = minutoInicial;
             items.add({
-                group: idSubGroup, 
-                start: moment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0), 
-                end: moment().hours(horaFinal).minutes(minutoFinal).seconds(0).milliseconds(0), 
+                group: idSubGroup,
+                start: moment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0),
+                end: moment().hours(horaFinal).minutes(minutoFinal).seconds(0).milliseconds(0),
                 type: 'background'
             });
             var group = getGroupByName(sector);
             var idGroup;
             if (group.length == 0) {
-                idGroup = groups.add({content: sector, nestedGroups: []})[0];
+                idGroup = groups.add({ content: sector, nestedGroups: [] })[0];
             } else {
                 idGroup = group[0].id;
             }
@@ -321,7 +379,7 @@
             timeline.setGroups(groups);
             return idSubGroup;
         }
-        
+
         var idRene = adicionar('JOSE RENE C.', 'Wipedown', 11);
         startme(idRene, 11, 00);
         breakme(idRene, 13, 10);
@@ -333,7 +391,7 @@
         var idLivia = adicionar('LIVIA BAZZI C.', 'Prep', 8, 30);
         startme(idLivia, 8, 30);
 
-        var idAmanda = adicionar('AMANDA BAZZI C.', 'Prep', 9,15);
+        var idAmanda = adicionar('AMANDA BAZZI C.', 'Prep', 9, 15);
         startme(idAmanda, 9, 15);
 
         var idWanessa = adicionar('WANESSA COSTA C.', 'Detail', 9);
@@ -344,4 +402,5 @@
 
     </script>
 </body>
+
 </html>
