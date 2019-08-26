@@ -44,21 +44,27 @@
                     <div class="modal-body">
                         <div v-for="item of items">
                             <div class="input-group">
-                                <select class="form-control" v-model="item.type">
-                                    <option>background</option>
-                                    <option>work</option>
-                                    <option>break</option>
-                                    <option>lunch</option>
-                                    <option>home</option>
+                                <select class="form-control" v-model="item.type" v-if="item.type != 'Scheduled'">
+                                    <option>Scheduled</option>
+                                    <option>Work</option>
+                                    <option>Break</option>
+                                    <option>Lunch</option>
+                                    <option>Home</option>
                                 </select>
+                                <input type="text" readonly class="form-control" v-model="item.type" v-if="item.type === 'Scheduled'">
                                 <input type="text" class="form-control" v-model="item.start">
                                 <input type="text" aria-label="Last name" class="form-control" v-model="item.end">
+                                <input class="form-check-input" type="checkbox" id="selecionado"
+                                    v-model="item.selecionado" v-if="item.type != 'Scheduled'">
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <div class="btn-group" role="group" aria-label="Basic example">
-                            <button type="button" class="btn btn-normal" v-on:click="atualizarSheets(modalIdGroup)">Update</button>
+                            <button type="button" class="btn btn-secondary"
+                                v-on:click="removerSheets(modalIdGroup)">Remove</button>
+                            <button type="button" class="btn btn-info"
+                                v-on:click="atualizarSheets(modalIdGroup)">Update</button>
                             <button type="button" class="btn btn-success" onclick="startme(modalIdGroup)">Start or
                                 Back</button>
                             <button type="button" class="btn btn-danger" onclick="breakme(modalIdGroup)">Break</button>
@@ -141,7 +147,7 @@
                 adicionar: function (event) {
                     adicionar(this.form.nome, this.form.grupo);
                 },
-                preencherTimeSheet: function(event, idSubGroup) {
+                preencherTimeSheet: function (event, idSubGroup) {
                     this.items = [];
                     var subGroup = groups.get(idSubGroup);
                     if (subGroup) {
@@ -150,14 +156,15 @@
                             if (i.group == subGroup.id) {
                                 if (i) {
                                     var item = {};
-                                    if (i.type) {
-                                        item.type = i.type;
+                                    if (i.type && i.type == "background") {
+                                        item.type = "Scheduled";
                                     } else if (i.typeOfWork) {
                                         item.type = i.typeOfWork;
                                     }
-                                    item.start = (i.start.hours()<10?"0"+i.start.hours():i.start.hours()) + ':' + (i.start.minutes()<10?"0"+i.start.minutes():i.start.minutes());
-                                    item.end = (i.end.hours()<10?"0"+i.end.hours():i.end.hours()) + ':' + (i.end.minutes()<10?"0"+i.end.minutes():i.end.minutes());
+                                    item.start = (i.start.hours() < 10 ? "0" + i.start.hours() : i.start.hours()) + ':' + (i.start.minutes() < 10 ? "0" + i.start.minutes() : i.start.minutes());
+                                    item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
                                     item.id = i.id;
+                                    item.selecionado = false;
                                     resultItems.push(item);
                                 }
                             }
@@ -165,10 +172,30 @@
                         this.items = resultItems;
                     }
                 },
-                atualizarSheets: function(idSubGroup, event) {
+                atualizarSheets: function (idSubGroup, event) {
+                    this.items.forEach(function (i) {
+                        var item = items.get(i.id);
+                        item.typeOfWork = i.type;
+                        switch (item.typeOfWork) {
+                            case 'Work': item.className = 'green'; break;
+                            case 'Break': item.className = 'red'; break;
+                            case 'Lunch': item.className = 'orange'; break;
+                        }
+                        var hora = i.start.split(":")[0];
+                        var minuto = i.start.split(":")[1];
+                        item.start = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        hora = i.end.split(":")[0];
+                        minuto = i.end.split(":")[1];
+                        item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        items.update(item);
+                    });
+                },
+                removerSheets: function (idSubGroup, event) {
                     console.log(idSubGroup);
                     this.items.forEach(function (i) {
-                        console.log(i.id + " - " + i.type + " - " + i.start + " to " + i.end);
+                        if (i.selecionado) {
+                            items.remove(i.id);
+                        }
                     });
                 },
                 mover: function (event) {
@@ -324,7 +351,7 @@
             items.add({
                 group: idSubGroup,
                 open: true,
-                typeOfWork: 'work',
+                typeOfWork: 'Work',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
                 className: 'green'
             });
@@ -337,7 +364,7 @@
             items.add({
                 group: idSubGroup,
                 open: true,
-                typeOfWork: 'break',
+                typeOfWork: 'Break',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
                 className: 'red'
             });
@@ -350,7 +377,7 @@
             items.add({
                 group: idSubGroup,
                 open: true,
-                typeOfWork: 'lunch',
+                typeOfWork: 'Lunch',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
                 className: 'orange'
             });
@@ -363,7 +390,7 @@
             items.add({
                 group: idSubGroup,
                 open: false,
-                typeOfWork: 'gohome',
+                typeOfWork: 'Home',
                 start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0)
             });
             $('#employeeModal').modal('hide');
