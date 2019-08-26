@@ -36,7 +36,7 @@
         <!-- Modal -->
         <div class="modal fade" id="employeeModal" tabindex="15" role="dialog">
             <div class="modal-dialog" role="document">
-                <div class="modal-content modal-lg">
+                <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Timesheet</h5>
                         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
@@ -44,25 +44,24 @@
                     <div class="modal-body">
                         <div v-for="item of items">
                             <div class="input-group">
+                                <input class="form-control" type="checkbox" id="selecionado"
+                                    v-model="item.selecionado" v-if="item.type != 'Scheduled'">
                                 <select class="form-control" v-model="item.type" v-if="item.type != 'Scheduled'">
-                                    <option>Scheduled</option>
                                     <option>Work</option>
                                     <option>Break</option>
                                     <option>Lunch</option>
                                     <option>Home</option>
                                 </select>
-                                <input type="text" readonly class="form-control" v-model="item.type" v-if="item.type === 'Scheduled'">
+                                <input type="text" readonly class="form-control" v-model="item.type"
+                                    v-if="item.type === 'Scheduled'">
                                 <input type="text" class="form-control" v-model="item.start">
-                                <input type="text" aria-label="Last name" class="form-control" v-model="item.end">
-                                <input class="form-check-input" type="checkbox" id="selecionado"
-                                    v-model="item.selecionado" v-if="item.type != 'Scheduled'">
+                                <input type="text" class="form-control" v-model="item.end">
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <div class="btn-group" role="group" aria-label="Basic example">
-                            <button type="button" class="btn btn-secondary"
-                                v-on:click="removerSheets(modalIdGroup)">Remove</button>
+                            <button type="button" class="btn btn-secondary" v-on:click="removerSheets(modalIdGroup)">Remove</button>
                             <button type="button" class="btn btn-info"
                                 v-on:click="atualizarSheets(modalIdGroup)">Update</button>
                             <button type="button" class="btn btn-success" onclick="startme(modalIdGroup)">Start or
@@ -164,6 +163,7 @@
                                     item.start = (i.start.hours() < 10 ? "0" + i.start.hours() : i.start.hours()) + ':' + (i.start.minutes() < 10 ? "0" + i.start.minutes() : i.start.minutes());
                                     item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
                                     item.id = i.id;
+                                    item.open = i.open;
                                     item.selecionado = false;
                                     resultItems.push(item);
                                 }
@@ -191,12 +191,12 @@
                     });
                 },
                 removerSheets: function (idSubGroup, event) {
-                    console.log(idSubGroup);
                     this.items.forEach(function (i) {
                         if (i.selecionado) {
                             items.remove(i.id);
                         }
                     });
+                    this.items = this.items.filter(function (v) { return !v.selecionado; });
                 },
                 mover: function (event) {
                     var subGrupos = groups.get({
