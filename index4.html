@@ -190,9 +190,11 @@
                         var hora = i.start.split(":")[0];
                         var minuto = i.start.split(":")[1];
                         item.start = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
-                        hora = i.end.split(":")[0];
-                        minuto = i.end.split(":")[1];
-                        item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        if (item.typeOfWork != "Home") {
+                            hora = i.end.split(":")[0];
+                            minuto = i.end.split(":")[1];
+                            item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        }
                         items.update(item);
                     });
                 },
@@ -261,14 +263,15 @@
         timeline.setGroups(groups);
         timeline.setItems(items);
         timeline.on('currentTimeTick', actionFired);
-        timeline.on('doubleClick', showModal);
         timeline.on('click', showModal);
         function showModal(properties) {
             if (properties && properties.group && properties.what == 'group-label') {
                 var group = groups.get(properties.group);
-                modalIdGroup = group.id;
-                app.preencherTimeSheet(null, modalIdGroup);
-                $('#employeeModal').modal('show');
+                if (group && group.employeeName) {
+                    modalIdGroup = group.id;
+                    app.preencherTimeSheet(null, modalIdGroup);
+                    $('#employeeModal').modal('show');
+                }
             }
         }
         function actionFired(properties) {
