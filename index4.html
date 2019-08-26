@@ -38,7 +38,7 @@
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Timesheet</h5>
+                        <h5 class="modal-title">{{employeeName}}'s Timesheet</h5>
                         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                     </div>
                     <div class="modal-body">
@@ -140,6 +140,7 @@
                     minuto: '',
                     entrada: 0
                 },
+                employeeName: '',
                 items: []
             },
             methods: {
@@ -150,6 +151,7 @@
                     this.items = [];
                     var subGroup = groups.get(idSubGroup);
                     if (subGroup) {
+                        this.employeeName = subGroup.employeeName;
                         var resultItems = [];
                         items.forEach(function (i) {
                             if (i.group == subGroup.id) {
