@@ -97,6 +97,9 @@
                 <div class="col">
                     <input v-model="form.minuto" type="text" class="form-control" id="minuto" placeholder="Minuto">
                 </div>
+                <div class="col">
+                    Versao 1.2
+                </div>
             </div>
         </form>
         <div id="TimeLine"></div>
@@ -432,27 +435,6 @@
             timeline.setGroups(groups);
             return idSubGroup;
         }
-
-        var idRene = adicionar('JOSE RENE C.', 'Wipedown', 11);
-        startme(idRene, 11, 00);
-        breakme(idRene, 13, 10);
-        startme(idRene, 13, 20);
-
-        var idJunior = adicionar('ANTONIO PAULINO J.', 'Wipedown', 8);
-        startme(idJunior, 8, 00);
-
-        var idLivia = adicionar('LIVIA BAZZI C.', 'Prep', 8, 30);
-        startme(idLivia, 8, 30);
-
-        var idAmanda = adicionar('AMANDA BAZZI C.', 'Prep', 9, 15);
-        startme(idAmanda, 9, 15);
-
-        var idWanessa = adicionar('WANESSA COSTA C.', 'Detail', 9);
-        startme(idWanessa, 9, 0);
-
-        var idLuana = adicionar('LUANA COSTA C.', 'Detail', 10, 45);
-        //startme(idLuana, 10, 45);
-
     </script>
 </body>
 
