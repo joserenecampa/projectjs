@@ -163,7 +163,11 @@
                                         item.type = i.typeOfWork;
                                     }
                                     item.start = (i.start.hours() < 10 ? "0" + i.start.hours() : i.start.hours()) + ':' + (i.start.minutes() < 10 ? "0" + i.start.minutes() : i.start.minutes());
-                                    item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
+                                    if (i.end) {
+                                        item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
+                                    } else {
+                                        item.end = '';
+                                    }
                                     item.id = i.id;
                                     item.open = i.open;
                                     item.selecionado = false;
@@ -257,6 +261,7 @@
         timeline.setGroups(groups);
         timeline.setItems(items);
         timeline.on('currentTimeTick', actionFired);
+        timeline.on('doubleClick', showModal);
         timeline.on('click', showModal);
         function showModal(properties) {
             if (properties && properties.group && properties.what == 'group-label') {
