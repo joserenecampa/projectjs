@@ -98,6 +98,12 @@
                     <input v-model="form.minuto" type="text" class="form-control" id="minuto" placeholder="Minuto">
                 </div>
                 <div class="col">
+                    <button type="button" v-on:click="orderGroupsBySumWork()" class="btn btn-primary btn-sm">By Work</button>
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="orderGroupsByLastWork()" class="btn btn-primary btn-sm">By Last Work</button>
+                </div>
+                <div class="col">
                     Versao 1.2
                 </div>
             </div>
@@ -149,6 +155,12 @@
                 items: []
             },
             methods: {
+                orderGroupsByLastWork: function (event) {
+                    orderGroupsByLastWork();
+                },
+                orderGroupsBySumWork: function (event) {
+                    orderGroupsBySumWork();
+                },
                 adicionar: function (event) {
                     adicionar(this.form.nome, this.form.grupo);
                 },
@@ -258,10 +270,10 @@
             //axHeight: 500,
             //horizontalScroll: true,
             //verticalScroll: true,            
-            //min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
-            //max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
-            //zoomMin: 1000 * 60 * 60 * 6,
-            //zoomMax: 1000 * 60 * 60 * 6
+            // min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            // max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            // zoomMin: 1000 * 60 * 60 * 14,
+            // zoomMax: 1000 * 60 * 60 * 14,
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
@@ -269,6 +281,39 @@
         timeline.setItems(items);
         timeline.on('currentTimeTick', actionFired);
         timeline.on('click', showModal);
+        function orderGroupsBySumWork() {
+            groups.forEach(function (group) {
+                group.order = 0;
+                groups.update(group);
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Work') {
+                    var group = groups.get(item.group);
+                    group.order = group.order - item.end.diff(item.start);
+                    groups.update(group);
+                }
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Home') {
+                    var group = groups.get(item.group);
+                    group.order = 0;
+                    groups.update(group);
+                }
+            });
+        }
+        function orderGroupsByLastWork() {
+            groups.forEach(function (group) {
+                group.order = 0;
+                groups.update(group);
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Work' && item.open) {
+                    var group = groups.get(item.group);
+                    group.order = group.order - item.end.diff(item.start);
+                    groups.update(group);
+                }
+            });
+        }
         function showModal(properties) {
             if (properties && properties.group && properties.what == 'group-label') {
                 var group = groups.get(properties.group);
@@ -286,10 +331,8 @@
                 }
             });
             results.forEach(function (item) {
-                if (item) {
-                    item.end = moment();
-                    items.update(item);
-                }
+                item.end = moment();
+                items.update(item);
             });
         }
         function getLastOpenItemBySubGroup(groupId) {
@@ -315,13 +358,6 @@
             var contentHtml = "";
             contentHtml = contentHtml + "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked ? 'checked' : '') + ">";
             contentHtml = contentHtml + employeeName;
-            //contentHtml = contentHtml + "<br/>";
-            //contentHtml = contentHtml + "<div class=\"btn-group btn-group-sm\" role=\"group\" aria-label=\"Basic example\">";
-            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-success\" onclick='startme(\"" + idSubGroup + "\");'>13:50</button>";
-            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-danger\" onclick='breakme(\"" + idSubGroup + "\");'>13:50</button>";
-            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-warning\" onclick='lunchme(\"" + idSubGroup + "\");'>13:50</button>";
-            //contentHtml = contentHtml + "<button type=\"button\" class=\"btn btn-dark\" onclick='homeme(\"" + idSubGroup + "\");'>Ho</button>";
-            //contentHtml = contentHtml + "</div>";
             return contentHtml;
         }
         function checkme(component, idSubGroup) {
@@ -330,8 +366,8 @@
             groups.update({ id: idSubGroup, content: c, checked: !subGrupo.checked });
         }
         function closeLastItem(idSubGroup, hora, minuto) {
-            if (!hora) hora = getHora(hora);
-            if (!minuto) minuto = getMinuto(minuto);
+            if (typeof hora == 'undefined') hora = getHora(hora);
+            if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
             var item = getLastOpenItemBySubGroup(idSubGroup);
             if (item) {
                 item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
@@ -359,59 +395,45 @@
             }
             return minuto;
         }
-        function startme(idSubGroup, hora, minuto) {
-            if (!hora) hora = getHora(hora);
-            if (!minuto) minuto = getMinuto(minuto);
+        function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open, className) {
+            if (typeof hora == 'undefined') hora = getHora(hora);
+            if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
             closeLastItem(idSubGroup, hora, minuto);
-            items.add({
-                group: idSubGroup,
-                open: true,
-                typeOfWork: 'Work',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
-                className: 'green'
-            });
+            if (typeof endHour == 'undefined' && typeof endMinute == 'undefined') {
+                items.add({
+                    group: idSubGroup,
+                    open: open,
+                    typeOfWork: typeOfWork,
+                    start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
+                    className: className
+                });
+            } else {
+                items.add({
+                    group: idSubGroup,
+                    open: open,
+                    typeOfWork: typeOfWork,
+                    start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
+                    end: moment().hours(endHour).minutes(endMinute).seconds(0).milliseconds(0),
+                    className: className
+                });
+            }
             $('#employeeModal').modal('hide');
         }
-        function breakme(idSubGroup, hora, minuto) {
-            if (!hora) hora = getHora(hora);
-            if (!minuto) minuto = getMinuto(minuto);
-            closeLastItem(idSubGroup, hora, minuto);
-            items.add({
-                group: idSubGroup,
-                open: true,
-                typeOfWork: 'Break',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
-                className: 'red'
-            });
-            $('#employeeModal').modal('hide');
+        function startme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Work', true, 'green');
         }
-        function lunchme(idSubGroup, hora, minuto) {
-            if (!hora) hora = getHora(hora);
-            if (!minuto) minuto = getMinuto(minuto);
-            closeLastItem(idSubGroup, hora, minuto);
-            items.add({
-                group: idSubGroup,
-                open: true,
-                typeOfWork: 'Lunch',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
-                className: 'orange'
-            });
-            $('#employeeModal').modal('hide');
+        function breakme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Break', true,'red');
         }
-        function homeme(idSubGroup, hora, minuto) {
-            if (!hora) hora = getHora(hora);
-            if (!minuto) minuto = getMinuto(minuto);
-            closeLastItem(idSubGroup, hora, minuto);
-            items.add({
-                group: idSubGroup,
-                open: false,
-                typeOfWork: 'Home',
-                start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0)
-            });
-            $('#employeeModal').modal('hide');
+        function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
+        }
+        function homeme(idSubGroup, hora, minuto, endHour, endMinute) {
+            var undefined;
+            addItem(idSubGroup, hora, minuto, undefined, undefined, 'Home', false, undefined);
         }
         function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
-            var idSubGroup = groups.add({ employeeName: name, checked: false })[0];
+            var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false })[0];
             var c = montarNome(idSubGroup, name, false);
             groups.update({ id: idSubGroup, content: c });
             if (!horaInicial) horaInicial = 9;
