@@ -71,14 +71,23 @@ public class Main {
     }
     private static String initializeVariables(String variable) {
         String result = System.getenv(variable);
-        if (result == null)
+        if (result == null || result.isEmpty()) {
             result = System.getProperty(variable);
+            if (result == null) {
+                System.out.println(variable + ": NAO LOCALIZEI");
+            } else {
+                System.out.println("jvm -> " + variable + ": " + result);
+            }
+        } else {
+            System.out.println("env -> " + variable + ": " + result);
+        }
         return result;
     }
 
     private static void initializeVariables() {
         Main.DB_URL = initializeVariables("DB_URL");
         Main.DB_USER = initializeVariables("DB_USER");
+        Main.DB_PASS = initializeVariables("DB_PASS");
         Main.SERVICE_PORT = initializeVariables("SERVICE_PORT");
         Main.SERVICE_BIND = initializeVariables("SERVICE_BIND");
     }
