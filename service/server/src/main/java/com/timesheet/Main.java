@@ -10,7 +10,6 @@ import io.undertow.servlet.api.ServletInfo;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import javax.servlet.ServletException;
@@ -22,11 +21,14 @@ import static io.undertow.servlet.Servlets.listener;
 
 public class Main {
 
-    private static final String DB_URL = "jdbc:h2:./timesheet";
-    private static final String DB_USER = "sa";
-    private static final String DB_PASS = "sa";
+    private static String DB_URL = null;
+    private static String DB_USER = null;
+    private static String DB_PASS = null;
+    private static String SERVICE_PORT = null;
+    private static String SERVICE_BIND = null;
 
     public static void main(String[] args) {
+        initializeVariables();
         initializeDatabase();
         initializeServerHTTP();
     }
@@ -45,7 +47,7 @@ public class Main {
             servletHandler = manager.start();
         } catch (ServletException e) {
         }
-        Undertow server = Undertow.builder().addHttpListener(8000, "ec2-54-233-138-126.sa-east-1.compute.amazonaws.com").setHandler(servletHandler).build();
+        Undertow server = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT), SERVICE_BIND).setHandler(servletHandler).build();
         server.start();
     }
 
@@ -53,18 +55,6 @@ public class Main {
         Connection conn = null;
         try {
             conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
-            ResultSet resultSet = conn.createStatement().executeQuery("show schemas");
-            while(resultSet.next()) {
-                int totalColumn = resultSet.getMetaData().getColumnCount();
-                for (int i=1; i<=totalColumn; i++)
-                    System.out.println("[" + i + "]: " + resultSet.getObject(i));
-            }
-            try {
-                conn.createStatement().executeUpdate("create sequence ids");
-            } catch (SQLException error) {
-                if (!error.getMessage().contains("already exists"))
-                    throw new RuntimeException(error);
-            }
             try {
                 conn.createStatement().executeUpdate("create table timesheet (date varchar(8) primary key, items clob, groups clob)");
             } catch (SQLException error) {
@@ -78,6 +68,19 @@ public class Main {
             error.printStackTrace();
             System.exit(1);
         }     
+    }
+    private static String initializeVariables(String variable) {
+        String result = System.getenv(variable);
+        if (result == null)
+            result = System.getProperty(variable);
+        return result;
+    }
+
+    private static void initializeVariables() {
+        Main.DB_URL = initializeVariables("DB_URL");
+        Main.DB_USER = initializeVariables("DB_USER");
+        Main.SERVICE_PORT = initializeVariables("SERVICE_PORT");
+        Main.SERVICE_BIND = initializeVariables("SERVICE_BIND");
     }
 
 }

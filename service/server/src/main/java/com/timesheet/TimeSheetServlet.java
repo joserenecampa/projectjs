@@ -70,6 +70,7 @@ public class TimeSheetServlet extends HttpServlet {
                                 "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
                     }
                 } else {
+                    ps.close();
                     ps = conn.prepareStatement("insert into timesheet (date, items, groups) values (?,?,?)");
                     ps.setString(1, date);
                     ps.setCharacterStream(2, new InputStreamReader(new ByteArrayInputStream(items.getBytes())));
