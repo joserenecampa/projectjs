@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.css">
+    <title>Campanario's System</title>
+    <style>
+        .vis-item.orange {
+            background-color: orange;
+            border-color: orange;
+        }
+
+        .vis-item.green {
+            background-color: green;
+            border-color: green;
+        }
+
+        .vis-item.red {
+            background-color: red;
+            border-color: red;
+        }
+
+        .vis-item.blue {
+            background-color: blue;
+            border-color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- Modal -->
+        <div class="modal fade" id="employeeModal" tabindex="15" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{employeeName}}'s Timesheet</h5>
+                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-for="item of items">
+                            <div class="input-group">
+                                <input class="form-control" type="checkbox" id="selecionado"
+                                    v-model="item.selecionado" v-if="item.type != 'Scheduled'">
+                                <select class="form-control" v-model="item.type" v-if="item.type != 'Scheduled'">
+                                    <option>Work</option>
+                                    <option>Break</option>
+                                    <option>Lunch</option>
+                                    <option>Home</option>
+                                </select>
+                                <input type="text" readonly class="form-control" v-model="item.type"
+                                    v-if="item.type === 'Scheduled'">
+                                <input type="text" class="form-control" v-model="item.start">
+                                <input type="text" class="form-control" v-model="item.end" v-if="item.type != 'Home'">
+                                <input type="text" readonly class="form-control" v-model="item.end"
+                                    v-if="item.type === 'Home'">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="btn-group" role="group" aria-label="Basic example">
+                            <button type="button" class="btn btn-secondary" v-on:click="removerSheets(modalIdGroup)">Remove</button>
+                            <button type="button" class="btn btn-info"
+                                v-on:click="atualizarSheets(modalIdGroup)">Update</button>
+                            <button type="button" class="btn btn-success" onclick="startme(modalIdGroup)">Start or
+                                Back</button>
+                            <button type="button" class="btn btn-danger" onclick="breakme(modalIdGroup)">Break</button>
+                            <button type="button" class="btn btn-warning" onclick="lunchme(modalIdGroup)">Lunch</button>
+                            <button type="button" class="btn btn-dark" onclick="homeme(modalIdGroup)">Go Home</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form>
+            <div class="form-row">
+                <div class="col">
+                    <input v-model="form.nome" type="text" class="form-control" id="nome" placeholder="Employee's name">
+                </div>
+                <div class="col">
+                    <select class="form-control" v-model="form.grupo">
+                        <option>Wipedown</option>
+                        <option>Prep</option>
+                        <option>Detail</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
+                </div>
+                <div class="col">
+                    <input v-model="form.hora" type="text" class="form-control" id="hora" placeholder="Hora">
+                </div>
+                <div class="col">
+                    <input v-model="form.minuto" type="text" class="form-control" id="minuto" placeholder="Minuto">
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="orderGroupsBySumWork()" class="btn btn-primary btn-sm">By Work</button>
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="orderGroupsByLastWork()" class="btn btn-primary btn-sm">By Last Work</button>
+                </div>
+                <div class="col">
+                    Versao 1.3 Ordem
+                </div>
+            </div>
+        </form>
+        <div id="TimeLine"></div>
+        <form>
+            <div class="form-row">
+                <div class="col">
+                    <button type="button" v-on:click="apagarSelecionados()" class="btn btn-primary btn-sm">X</button>
+                    <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected to</button>
+                </div>
+                <div class="col">
+                    <select class="form-control" v-model="form.moverPara">
+                        <option>Wipedown</option>
+                        <option>Prep</option>
+                        <option>Detail</option>
+                    </select>
+                    <button type="button" class="btn btn-dark" onclick="javascript:persist();">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.min.js"></script>
+    <script src="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.js"></script>
+    <script>
+        var modalIdGroup = '';
+        var app = new Vue({
+            el: '#app',
+            data: {
+                form: {
+                    nome: '',
+                    grupo: '',
+                    moverPara: '',
+                    hora: '',
+                    minuto: '',
+                    entrada: 0
+                },
+                employeeName: '',
+                items: []
+            },
+            methods: {
+                orderGroupsByLastWork: function (event) {
+                    orderGroupsByLastWork();
+                },
+                orderGroupsBySumWork: function (event) {
+                    orderGroupsBySumWork();
+                },
+                adicionar: function (event) {
+                    adicionar(this.form.nome, this.form.grupo);
+                },
+                preencherTimeSheet: function (event, idSubGroup) {
+                    this.items = [];
+                    var subGroup = groups.get(idSubGroup);
+                    if (subGroup) {
+                        this.employeeName = subGroup.employeeName;
+                        var resultItems = [];
+                        items.forEach(function (i) {
+                            if (i.group == subGroup.id) {
+                                if (i) {
+                                    var item = {};
+                                    if (i.type && i.type == "background") {
+                                        item.type = "Scheduled";
+                                    } else if (i.typeOfWork) {
+                                        item.type = i.typeOfWork;
+                                    }
+                                    item.start = (i.start.hours() < 10 ? "0" + i.start.hours() : i.start.hours()) + ':' + (i.start.minutes() < 10 ? "0" + i.start.minutes() : i.start.minutes());
+                                    if (i.end) {
+                                        item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
+                                    } else {
+                                        item.end = '';
+                                    }
+                                    item.id = i.id;
+                                    item.open = i.open;
+                                    item.selecionado = false;
+                                    resultItems.push(item);
+                                }
+                            }
+                        });
+                        this.items = resultItems;
+                    }
+                },
+                atualizarSheets: function (idSubGroup, event) {
+                    this.items.forEach(function (i) {
+                        var item = items.get(i.id);
+                        item.typeOfWork = i.type;
+                        switch (item.typeOfWork) {
+                            case 'Work': item.className = 'green'; break;
+                            case 'Break': item.className = 'red'; break;
+                            case 'Lunch': item.className = 'orange'; break;
+                        }
+                        var hora = i.start.split(":")[0];
+                        var minuto = i.start.split(":")[1];
+                        item.start = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        if (item.typeOfWork != "Home") {
+                            hora = i.end.split(":")[0];
+                            minuto = i.end.split(":")[1];
+                            item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        }
+                        items.update(item);
+                    });
+                },
+                removerSheets: function (idSubGroup, event) {
+                    this.items.forEach(function (i) {
+                        if (i.selecionado) {
+                            items.remove(i.id);
+                        }
+                    });
+                    this.items = this.items.filter(function (v) { return !v.selecionado; });
+                },
+                mover: function (event) {
+                    var subGrupos = groups.get({
+                        filter: function (item) {
+                            return (item.checked);
+                        }
+                    });
+                    var moverTo = getGroupByName(this.form.moverPara);
+                    if (moverTo.length == 0) {
+                        moverTo = groups.add({ content: this.form.moverPara, nestedGroups: [] })[0];
+                    } else {
+                        moverTo = moverTo[0];
+                    }
+                    subGrupos.forEach(function (gr) {
+                        var parentGroup = groups.get(gr.nestedInGroup);
+                        parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                        groups.update(parentGroup);
+                        gr.nestedInGroup = moverTo.id;
+                        groups.update(gr);
+                        moverTo.nestedGroups.push(gr.id);
+                        groups.update(moverTo);
+                    });
+                },
+                apagarSelecionados: function (event) {
+                    var subGrupos = groups.get({
+                        filter: function (item) {
+                            return (item.checked);
+                        }
+                    });
+                    subGrupos.forEach(function (gr) {
+                        var parentGroup = groups.get(gr.nestedInGroup);
+                        parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                        groups.update(parentGroup);
+                        groups.remove(gr.id);
+                    });
+                }
+            }
+        })
+        var items = new vis.DataSet([]);
+        var timeline = null;
+        var groups = new vis.DataSet([]);
+        var container = document.getElementById("TimeLine");
+        var options = {
+            stack: false,
+            orientation: { axis: 'both' },
+            //axHeight: 500,
+            //horizontalScroll: true,
+            //verticalScroll: true,            
+            min: moment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            max: moment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            zoomMin: 1000 * 60 * 60 * 14,
+            zoomMax: 1000 * 60 * 60 * 14
+        };
+        timeline = new vis.Timeline(container);
+        timeline.setOptions(options);
+        timeline.setGroups(groups);
+        timeline.setItems(items);
+        timeline.on('currentTimeTick', actionFired);
+        timeline.on('click', showModal);
+        function orderGroupsBySumWork() {
+            groups.forEach(function (group) {
+                group.order = 0;
+                groups.update(group);
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Work') {
+                    var group = groups.get(item.group);
+                    group.order = group.order - item.end.diff(item.start);
+                    groups.update(group);
+                }
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Home') {
+                    var group = groups.get(item.group);
+                    group.order = 0;
+                    groups.update(group);
+                }
+            });
+        }
+        function orderGroupsByLastWork() {
+            groups.forEach(function (group) {
+                group.order = 0;
+                groups.update(group);
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Work' && item.open) {
+                    var group = groups.get(item.group);
+                    group.order = group.order - item.end.diff(item.start);
+                    groups.update(group);
+                }
+            });
+        }
+        function showModal(properties) {
+            if (properties && properties.group && properties.what == 'group-label') {
+                var group = groups.get(properties.group);
+                if (group && group.employeeName) {
+                    modalIdGroup = group.id;
+                    app.preencherTimeSheet(null, modalIdGroup);
+                    $('#employeeModal').modal('show');
+                }
+            }
+        }
+        function actionFired(properties) {
+            var results = items.get({
+                filter: function (item) {
+                    return (item.open);
+                }
+            });
+            results.forEach(function (item) {
+                item.end = moment();
+                items.update(item);
+            });
+        }
+        function getLastOpenItemBySubGroup(groupId) {
+            var results = items.get({
+                filter: function (item) {
+                    return (item.group == groupId && item.open);
+                }
+            });
+            if (results.length > 0) {
+                return results[0];
+            } else {
+                return null;
+            }
+        }
+        function getGroupByName(groupName) {
+            return groups.get({
+                filter: function (item) {
+                    return (item.content == groupName);
+                }
+            });
+        }
+        function montarNome(idSubGroup, employeeName, checked) {
+            var contentHtml = "";
+            contentHtml = contentHtml + "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked ? 'checked' : '') + ">";
+            contentHtml = contentHtml + employeeName;
+            return contentHtml;
+        }
+        function checkme(component, idSubGroup) {
+            var subGrupo = groups.get(idSubGroup);
+            var c = montarNome(subGrupo.id, subGrupo.employeeName, component.checked);
+            groups.update({ id: idSubGroup, content: c, checked: !subGrupo.checked });
+        }
+        function closeLastItem(idSubGroup, hora, minuto) {
+            if (typeof hora == 'undefined') hora = getHora(hora);
+            if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
+            var item = getLastOpenItemBySubGroup(idSubGroup);
+            if (item) {
+                item.end = moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                item.open = false;
+                items.update(item);
+            }
+        }
+        function getHora(hora) {
+            if (!hora) {
+                if (!app || !app.form || !app.form.hora) {
+                    hora = moment().hours();
+                } else {
+                    hora = app.form.hora;
+                }
+            }
+            return hora;
+        }
+        function getMinuto(minuto) {
+            if (!minuto) {
+                if (!app || !app.form || !app.form.minuto) {
+                    minuto = moment().minutes();
+                } else {
+                    minuto = app.form.minuto;
+                }
+            }
+            return minuto;
+        }
+        function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open, className) {
+            if (typeof hora == 'undefined') hora = getHora(hora);
+            if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
+            closeLastItem(idSubGroup, hora, minuto);
+            if (typeof endHour == 'undefined' && typeof endMinute == 'undefined') {
+                items.add({
+                    group: idSubGroup,
+                    open: open,
+                    typeOfWork: typeOfWork,
+                    start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
+                    className: className
+                });
+            } else {
+                items.add({
+                    group: idSubGroup,
+                    open: open,
+                    typeOfWork: typeOfWork,
+                    start: moment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
+                    end: moment().hours(endHour).minutes(endMinute).seconds(0).milliseconds(0),
+                    className: className
+                });
+            }
+            $('#employeeModal').modal('hide');
+        }
+        function startme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Work', true, 'green');
+        }
+        function breakme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Break', true,'red');
+        }
+        function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
+        }
+        function homeme(idSubGroup, hora, minuto, endHour, endMinute) {
+            var undefined;
+            addItem(idSubGroup, hora, minuto, undefined, undefined, 'Home', false, undefined);
+        }
+        function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
+            var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false })[0];
+            var c = montarNome(idSubGroup, name, false);
+            groups.update({ id: idSubGroup, content: c });
+            if (!horaInicial) horaInicial = 9;
+            if (!minutoInicial) minutoInicial = 0;
+            if (!horaFinal) horaFinal = horaInicial + 8;
+            if (!minutoFinal) minutoFinal = minutoInicial;
+            items.add({
+                group: idSubGroup,
+                start: moment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0),
+                end: moment().hours(horaFinal).minutes(minutoFinal).seconds(0).milliseconds(0),
+                type: 'background'
+            });
+            var group = getGroupByName(sector);
+            var idGroup;
+            if (group.length == 0) {
+                idGroup = groups.add({ content: sector, nestedGroups: [] })[0];
+            } else {
+                idGroup = group[0].id;
+            }
+            groups.get(idGroup).nestedGroups.push(idSubGroup);
+            timeline.setGroups(groups);
+            return idSubGroup;
+        }
+        function persist() {
+        }
+    </script>
+</body>
+
+</html>
