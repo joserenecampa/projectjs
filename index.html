@@ -6,100 +6,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
         integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.css">
     <title>Campanario's System</title>
+    <style>
+        .vis-item.orange {
+            background-color: orange;
+            border-color: orange;
+        }
+
+        .vis-item.green {
+            background-color: green;
+            border-color: green;
+        }
+
+        .vis-item.red {
+            background-color: red;
+            border-color: red;
+        }
+
+        .vis-item.blue {
+            background-color: blue;
+            border-color: blue;
+        }
+    </style>
 </head>
 
 <body>
-    <div id="app" class="container">
+    <div id="app">
+        <!-- Modal -->
+        <div class="modal fade" id="employeeModal" tabindex="15" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{employeeName}}'s Timesheet</h5>
+                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-for="item of items">
+                            <div class="input-group">
+                                <input class="form-control" type="checkbox" id="selecionado" v-model="item.selecionado"
+                                    v-if="item.type != 'Scheduled'">
+                                <select class="form-control" v-model="item.type" v-if="item.type != 'Scheduled'">
+                                    <option>Work</option>
+                                    <option>Break</option>
+                                    <option>Lunch</option>
+                                    <option>Home</option>
+                                </select>
+                                <input type="text" readonly class="form-control" v-model="item.type"
+                                    v-if="item.type === 'Scheduled'">
+                                <input type="text" class="form-control" v-model="item.start">
+                                <input type="text" class="form-control" v-model="item.end" v-if="item.type != 'Home'">
+                                <input type="text" readonly class="form-control" v-model="item.end"
+                                    v-if="item.type === 'Home'">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="btn-group" role="group" aria-label="Basic example">
+                            <button type="button" class="btn btn-secondary"
+                                v-on:click="removerSheets(modalIdGroup)">Remove</button>
+                            <button type="button" class="btn btn-info"
+                                v-on:click="atualizarSheets(modalIdGroup)">Update</button>
+                            <button type="button" class="btn btn-success" onclick="startme(modalIdGroup)">Start or
+                                Back</button>
+                            <button type="button" class="btn btn-danger" onclick="breakme(modalIdGroup)">Break</button>
+                            <button type="button" class="btn btn-warning" onclick="lunchme(modalIdGroup)">Lunch</button>
+                            <button type="button" class="btn btn-dark" onclick="homeme(modalIdGroup)">Go Home</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <form>
             <div class="form-row">
-                <div class="form-group col-md-4">
-                    <label for="nome">Employee</label>
+                <div class="col">
                     <input v-model="form.nome" type="text" class="form-control" id="nome" placeholder="Employee's name">
                 </div>
-                <div class="form-group col-md-4">
-                    <label for="grupo">Sector</label>
-                    <select class="form-control form-control-sm" v-model="form.grupo">
-                        <option v-for="setor of setores">{{setor}}</option>
+                <div class="col">
+                    <select class="form-control" v-model="form.grupo">
+                        <option>Wipedown</option>
+                        <option>Prep</option>
+                        <option>Detail</option>
                     </select>
                 </div>
-            </div>
-            <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
-            <button type="button" v-on:click="salvar" class="btn">Save</button>
-            <button type="button" v-on:click="carregar" class="btn">Load</button>
-        </form>
-        <br>
-        <div v-if="pessoas.length > 0">
-            total <span class="badge badge-pill badge-primary">{{(inWork()+inBreak()+inArrive())}}</span> | working<span
-                class="badge badge-pill badge-success">{{inWork()}}</span> | breaking <span
-                class="badge badge-pill badge-warning">{{inBreak()}}</span> | arriving <span
-                class="badge badge-pill badge-warning">{{inArrive()}}</span>
-        </div>
-        <br>
-        <div class="container">
-            <div class="row" v-for="grupo of setores">
-                <div v-if="totalGroup(grupo) > 0" class="col">
-                    {{grupo}} | total <span class="badge badge-pill badge-primary">{{totalGroup(grupo)}}</span> | working <span
-                    class="badge badge-pill badge-success">{{inWorkForGroup(grupo)}}</span> | breaking <span
-                    class="badge badge-pill badge-warning">{{inBreakForGroup(grupo)}}</span> | arriving <span
-                    class="badge badge-pill badge-warning">{{inArriveForGroup(grupo)}}</span>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Employee</th>
-                                <th scope="col">Arrive</th>
-                                <th scope="col">LB</th>
-                                <th scope="col"></th>
-                                <th scope="col"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="p in pessoas" v-if="p.grupo === grupo">
-                                <td scope="row"><input class="form-check-input" type="checkbox"
-                                        id="selecionado" v-model="p.selecionado"><span
-                                        class="badge badge-light">{{p.nome}}</span></td>
-                                <td v-if="p.entrada > 0"><span
-                                        class="badge badge-info">{{p.diferencaEntrada}}</span></td>
-                                <td v-if="p.retorno > 0"><span
-                                        class="badge badge-success">{{p.diferencaUltimaParada}}</span></td>
-                                <td v-if="p.parada > 0"><span
-                                        class="badge badge-warning">{{p.diferencaParada}}</span></td>
-                                <td><span class="badge badge-pill badge-light">Breaks<span
-                                            class="badge badge-pill badge-warning">{{p.quantidadeParada}}</span></span>
-                                </td>
-                                <td v-if="p.entrada === 0 && p.parada === 0"><button type="button"
-                                    v-on:click="chegar(p)" class="btn btn-primary btn-sm">Arrive</button>
-                                    <td v-if="p.entrada > 0 && p.parada === 0"><button type="button"
-                                        v-on:click="parar(p)" class="btn btn-primary btn-sm">Break</button>
-                                    <button type="button" v-on:click="remover(p)"
-                                        class="btn btn-primary btn-sm">X</button>
-                                </td>
-                                <td v-if="p.parada > 0"><button type="button"
-                                        v-on:click="voltar(p)" class="btn btn-primary btn-sm">Back</button>
-                                    <button type="button" v-on:click="remover(p)"
-                                        class="btn btn-primary btn-sm">X</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="col">
+                    <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
+                </div>
+                <div class="col">
+                    <input v-model="form.hora" type="text" class="form-control" id="hora" placeholder="Hora">
+                </div>
+                <div class="col">
+                    <input v-model="form.minuto" type="text" class="form-control" id="minuto" placeholder="Minuto">
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="orderGroupsBySumWork()" class="btn btn-primary btn-sm">By
+                        Work</button>
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="orderGroupsByLastWork()" class="btn btn-primary btn-sm">By Last
+                        Work</button>
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="addOffSet()" class="btn btn-primary btn-sm">+</button>
+                </div>
+                <div class="col">
+                    <button type="button" v-on:click="subOffSet()" class="btn btn-primary btn-sm">-</button>
+                </div>
+                <div class="col">
+                    Versao 1.3 Ordem
                 </div>
             </div>
-            <div v-if="pessoas.length > 0">
-                <form class="form-inline">
-                    <div class="form-group mb-2">
-                        <button type="button" v-on:click="apagarSelecionados()"
-                            class="btn btn-primary btn-sm">X</button>
-                        <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected
-                            to</button>
-                    </div>
-                    <div class="form-group mx-sm-3 mb-2">
-                        <select class="form-control form-control-sm" v-model="form.moverPara">
-                            <option v-for="setor of setores">{{setor}}</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <br>
+        </form>
+        <div id="TimeLine"></div>
+        <form>
+            <div class="form-row">
+                <div class="col">
+                    <button type="button" v-on:click="apagarSelecionados()" class="btn btn-primary btn-sm">X</button>
+                    <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected to</button>
+                </div>
+                <div class="col">
+                    <select class="form-control" v-model="form.moverPara">
+                        <option>Wipedown</option>
+                        <option>Prep</option>
+                        <option>Detail</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <button type="button" class="btn btn-dark" onclick="javascript:persist();">Save</button>
+                    <button type="button" class="btn btn-dark" onclick="javascript:load();">Load</button>
+                </div>
+        </form>
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
         integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
@@ -112,43 +148,11 @@
         crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.min.js"></script>
+    <script src="https://unpkg.com/vis-timeline@5.1.0/dist/vis-timeline-graph2d.min.js"></script>
     <script>
-        function montaBarraDiaria() {
-
-        }
-        function formatarData(data) {
-            var date = new Date(data);
-            var duration = Date.now() - data;
-            var negativo = false;
-            if (duration < 0) {
-                negativo = true;
-                duration = duration * -1;
-            }
-            var seconds = Math.floor((duration / 1000) % 60);
-            var minutes = Math.floor((duration / (1000 * 60)) % 60);
-            var hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
-            hours = (hours < 10) ? "0" + hours : hours;
-            minutes = (minutes < 10) ? "0" + minutes : minutes;
-            seconds = (seconds < 10) ? "0" + seconds : seconds;
-            complete_hours = (date.getHours() < 10) ? "0" + date.getHours() : date.getHours();
-            complete_minutes = (date.getMinutes() < 10) ? "0" + date.getMinutes() : date.getMinutes();
-            return (!negativo ? complete_hours + ":" + complete_minutes + " - " : "R ") + hours + ":" + minutes + ":" + seconds;
-        }
-        function horaAtual() {
-            return Date.now();
-        }
-        function ordernar(listaPessoas) {
-            listaPessoas = listaPessoas.slice().sort(function (a, b) {
-                var valueA = a.entrada === 0 ? Number.MAX_SAFE_INTEGER : a.retorno > 0 ? a.retorno : a.parada > 0 ? a.parada : a.entrada;
-                var valueB = b.entrada === 0 ? Number.MAX_SAFE_INTEGER : b.retorno > 0 ? b.retorno : b.parada > 0 ? b.parada : b.entrada;
-                if (valueA > valueB) {
-                    return 1;
-                } else {
-                    return -1;
-                }
-            });
-            return listaPessoas;
-        }
+        var timeSheetDayOffset = 0;
+        var modalIdGroup = '';
         var app = new Vue({
             el: '#app',
             data: {
@@ -156,144 +160,386 @@
                     nome: '',
                     grupo: '',
                     moverPara: '',
+                    hora: '',
+                    minuto: '',
                     entrada: 0
                 },
-                pessoa: {
-                    nome: '',
-                    grupo: '',
-                    selecionado: false,
-                    diferencaEntrada: 0,
-                    diferencaParada: 0,
-                    entrada: 0,
-                    parada: 0,
-                    quantidadeParada: 0,
-                    retorno: 0
-                },
-                pessoas: [],
-                setores: ['Wipedown', 'Prep', 'Detail']
-            },
-            created: function () {
-                var date = new Date();
-                this.form.entrada = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().replace("Z", "").split(".")[0];
-                setInterval(() => {
-                    this.pessoas.forEach(function (p) {
-                        if (p.entrada > 0) {
-                            p.diferencaEntrada = formatarData(p.entrada);
-                            if (p.retorno > 0) {
-                                p.diferencaUltimaParada = formatarData(p.retorno);
-                            }
-                            if (p.parada > 0) {
-                                p.diferencaParada = formatarData(p.parada);
-                            }
-                        }
-                    });
-                }, 1000);
+                employeeName: '',
+                items: []
             },
             methods: {
+                orderGroupsByLastWork: function (event) {
+                    orderGroupsByLastWork();
+                },
+                orderGroupsBySumWork: function (event) {
+                    orderGroupsBySumWork();
+                },
                 adicionar: function (event) {
-                    var p = {};
-                    Object.assign(p, this.pessoa);
-                    p.nome = this.form.nome;
-                    p.grupo = this.form.grupo;
-                    this.form.nome = '';
-                    this.pessoas.push(p);
-                    this.pessoas = ordernar(this.pessoas);
+                    adicionar(this.form.nome, this.form.grupo);
                 },
-                parar: function (pessoa, event) {
-                    pessoa.parada = horaAtual();
-                    pessoa.quantidadeParada = pessoa.quantidadeParada + 1;
-                    this.pessoas = ordernar(this.pessoas);
-                },
-                chegar: function (pessoa, event) {
-                    pessoa.entrada = horaAtual();
-                    this.pessoas = ordernar(this.pessoas);
-                },
-                remover: function (pessoa, event) {
-                    if (confirm('Deseja remover ' + pessoa.nome + '?')) {
-                        this.pessoas = this.pessoas.filter(function (v) { return v != pessoa; });
+                preencherTimeSheet: function (event, idSubGroup) {
+                    this.items = [];
+                    var subGroup = groups.get(idSubGroup);
+                    if (subGroup) {
+                        this.employeeName = subGroup.employeeName;
+                        var resultItems = [];
+                        items.forEach(function (i) {
+                            if (i.group == subGroup.id) {
+                                if (i) {
+                                    var item = {};
+                                    if (i.type && i.type == "background") {
+                                        item.type = "Scheduled";
+                                    } else if (i.typeOfWork) {
+                                        item.type = i.typeOfWork;
+                                    }
+                                    item.start = (i.start.hours() < 10 ? "0" + i.start.hours() : i.start.hours()) + ':' + (i.start.minutes() < 10 ? "0" + i.start.minutes() : i.start.minutes());
+                                    if (i.end) {
+                                        item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
+                                    } else {
+                                        item.end = '';
+                                    }
+                                    item.id = i.id;
+                                    item.open = i.open;
+                                    item.selecionado = false;
+                                    resultItems.push(item);
+                                }
+                            }
+                        });
+                        this.items = resultItems;
                     }
                 },
-                salvar: function () {
-                    localStorage.setItem('pessoas', JSON.stringify(this.pessoas));
+                atualizarSheets: function (idSubGroup, event) {
+                    this.items.forEach(function (i) {
+                        var item = items.get(i.id);
+                        item.typeOfWork = i.type;
+                        switch (item.typeOfWork) {
+                            case 'Work': item.className = 'green'; break;
+                            case 'Break': item.className = 'red'; break;
+                            case 'Lunch': item.className = 'orange'; break;
+                        }
+                        var hora = i.start.split(":")[0];
+                        var minuto = i.start.split(":")[1];
+                        item.start = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        if (item.typeOfWork != "Home") {
+                            hora = i.end.split(":")[0];
+                            minuto = i.end.split(":")[1];
+                            item.end = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                        }
+                        items.update(item);
+                    });
                 },
-                carregar: function () {
-                    this.pessoas = JSON.parse(localStorage.getItem('pessoas'));
-                    this.pessoas = ordernar(this.pessoas);
+                removerSheets: function (idSubGroup, event) {
+                    this.items.forEach(function (i) {
+                        if (i.selecionado) {
+                            items.remove(i.id);
+                        }
+                    });
+                    this.items = this.items.filter(function (v) { return !v.selecionado; });
                 },
-                voltar: function (pessoa, event) {
-                    pessoa.retorno = horaAtual();
-                    pessoa.parada = 0;
-                    this.pessoas = ordernar(this.pessoas);
-                },
-                apagarSelecionados: function () {
-                    if (confirm('Deseja remover todos selecionados?')) {
-                        this.pessoas = this.pessoas.filter(function (v) { return !v.selecionado; });
+                mover: function (event) {
+                    var subGrupos = groups.get({
+                        filter: function (item) {
+                            return (item.checked);
+                        }
+                    });
+                    var moverTo = getGroupByName(this.form.moverPara);
+                    if (moverTo.length == 0) {
+                        moverTo = groups.add({ content: this.form.moverPara, nestedGroups: [] })[0];
+                    } else {
+                        moverTo = moverTo[0];
                     }
+                    subGrupos.forEach(function (gr) {
+                        var parentGroup = groups.get(gr.nestedInGroup);
+                        parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                        groups.update(parentGroup);
+                        gr.nestedInGroup = moverTo.id;
+                        groups.update(gr);
+                        moverTo.nestedGroups.push(gr.id);
+                        groups.update(moverTo);
+                    });
                 },
-                inArrive: function () {
-                    var total = 0;
-                    this.pessoas.forEach(function (p) {
-                        if (p.entrada === 0) {
-                            total++;
+                apagarSelecionados: function (event) {
+                    var subGrupos = groups.get({
+                        filter: function (item) {
+                            return (item.checked);
                         }
                     });
-                    return total;
-                },
-                inWork: function () {
-                    var total = 0;
-                    this.pessoas.forEach(function (p) {
-                        if (p.entrada > 0) {
-                            total++;
-                        }
+                    subGrupos.forEach(function (gr) {
+                        var parentGroup = groups.get(gr.nestedInGroup);
+                        parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                        groups.update(parentGroup);
+                        groups.remove(gr.id);
                     });
-                    return total;
-                },
-                inBreak: function () {
-                    var total = 0;
-                    this.pessoas.forEach(function (p) {
-                        if (p.parada > 0) {
-                            total++;
-                        }
-                    });
-                    return total;
-                },
-                inWorkForGroup: function (grupo) {
-                    var total = 0;
-                    this.pessoas.forEach(function (p) {
-                        if (p.entrada > 0 && p.parada === 0 && p.grupo === grupo) {
-                            total++;
-                        }
-                    });
-                    return total;
-                },
-                inArriveForGroup: function (grupo) {
-                    var total = 0;
-                    this.pessoas.forEach(function (p) {
-                        if (p.entrada === 0 && p.grupo === grupo) {
-                            total++;
-                        }
-                    });
-                    return total;
-                },
-                inBreakForGroup: function (grupo) {
-                    var total = 0;
-                    this.pessoas.forEach(function (p) {
-                        if (p.parada > 0 && p.grupo === grupo) {
-                            total++;
-                        }
-                    });
-                    return total;
-                },
-                totalGroup: function(grupo) {
-                    return this.inWorkForGroup(grupo)+this.inBreakForGroup(grupo)+this.inArriveForGroup(grupo);
-                },
-                mover: function () {
-                    var moverPara = this.form.moverPara;
-                    if (this.form.moverPara) { this.pessoas.forEach(function (p) { if (p.selecionado) { p.grupo = moverPara; p.selecionado = false } }); }
-                    this.pessoas = ordernar(this.pessoas);
                 }
             }
         })
+        var items = new vis.DataSet([]);
+        var timeline = null;
+        var groups = new vis.DataSet([]);
+        var container = document.getElementById("TimeLine");
+        var options = {
+            stack: false,
+            orientation: { axis: 'both' },
+            //axHeight: 500,
+            //horizontalScroll: true,
+            //verticalScroll: true,            
+            min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            zoomMin: 1000 * 60 * 60 * 14,
+            zoomMax: 1000 * 60 * 60 * 14
+        };
+        timeline = new vis.Timeline(container);
+        timeline.setOptions(options);
+        timeline.setGroups(groups);
+        timeline.setItems(items);
+        timeline.on('currentTimeTick', actionFired);
+        timeline.on('click', showModal);
+        function updateOptions() {
+            var options = {
+                stack: false,
+                orientation: { axis: 'both' },
+                min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+                max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
+                zoomMin: 1000 * 60 * 60 * 14,
+                zoomMax: 1000 * 60 * 60 * 14
+            };
+            timeline.setOptions(options);
+            timeline.fit();
+        }
+        function addOffSet() {
+            timeSheetDayOffset = timeSheetDayOffset + 1;
+            updateOptions();
+            load();
+        }
+        function subOffSet() {
+            timeSheetDayOffset = timeSheetDayOffset - 1;
+            updateOptions();
+            load();
+        }
+        function getMoment() {
+            return moment().add(timeSheetDayOffset, 'days');
+        }
+        function orderGroupsBySumWork() {
+            groups.forEach(function (group) {
+                group.order = 0;
+                groups.update(group);
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Work') {
+                    var group = groups.get(item.group);
+                    group.order = group.order - item.end.diff(item.start);
+                    groups.update(group);
+                }
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Home') {
+                    var group = groups.get(item.group);
+                    group.order = 0;
+                    groups.update(group);
+                }
+            });
+        }
+        function orderGroupsByLastWork() {
+            groups.forEach(function (group) {
+                group.order = 0;
+                groups.update(group);
+            });
+            items.forEach(function (item) {
+                if (item.typeOfWork === 'Work' && item.open) {
+                    var group = groups.get(item.group);
+                    group.order = group.order - item.end.diff(item.start);
+                    groups.update(group);
+                }
+            });
+        }
+        function showModal(properties) {
+            if (properties && properties.group && properties.what == 'group-label') {
+                var group = groups.get(properties.group);
+                if (group && group.employeeName) {
+                    modalIdGroup = group.id;
+                    app.preencherTimeSheet(null, modalIdGroup);
+                    $('#employeeModal').modal('show');
+                }
+            }
+        }
+        function actionFired(properties) {
+            var results = items.get({
+                filter: function (item) {
+                    return (item.open);
+                }
+            });
+            results.forEach(function (item) {
+                item.end = getMoment();
+                items.update(item);
+            });
+        }
+        function getLastOpenItemBySubGroup(groupId) {
+            var results = items.get({
+                filter: function (item) {
+                    return (item.group == groupId && item.open);
+                }
+            });
+            if (results.length > 0) {
+                return results[0];
+            } else {
+                return null;
+            }
+        }
+        function getGroupByName(groupName) {
+            return groups.get({
+                filter: function (item) {
+                    return (item.content == groupName);
+                }
+            });
+        }
+        function montarNome(idSubGroup, employeeName, checked) {
+            var contentHtml = "";
+            contentHtml = contentHtml + "<input class='form-check-input' onclick='checkme(this,\"" + idSubGroup + "\");' type='checkbox' " + (checked ? 'checked' : '') + ">";
+            contentHtml = contentHtml + employeeName;
+            return contentHtml;
+        }
+        function checkme(component, idSubGroup) {
+            var subGrupo = groups.get(idSubGroup);
+            var c = montarNome(subGrupo.id, subGrupo.employeeName, component.checked);
+            groups.update({ id: idSubGroup, content: c, checked: !subGrupo.checked });
+        }
+        function closeLastItem(idSubGroup, hora, minuto) {
+            if (typeof hora == 'undefined') hora = getHora(hora);
+            if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
+            var item = getLastOpenItemBySubGroup(idSubGroup);
+            if (item) {
+                item.end = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
+                item.open = false;
+                items.update(item);
+            }
+        }
+        function getHora(hora) {
+            if (!hora) {
+                if (!app || !app.form || !app.form.hora) {
+                    hora = getMoment().hours();
+                } else {
+                    hora = app.form.hora;
+                }
+            }
+            return hora;
+        }
+        function getMinuto(minuto) {
+            if (!minuto) {
+                if (!app || !app.form || !app.form.minuto) {
+                    minuto = getMoment().minutes();
+                } else {
+                    minuto = app.form.minuto;
+                }
+            }
+            return minuto;
+        }
+        function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open, className) {
+            if (typeof hora == 'undefined') hora = getHora(hora);
+            if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
+            closeLastItem(idSubGroup, hora, minuto);
+            if (typeof endHour == 'undefined' && typeof endMinute == 'undefined') {
+                items.add({
+                    group: idSubGroup,
+                    open: open,
+                    typeOfWork: typeOfWork,
+                    start: getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
+                    className: className
+                });
+            } else {
+                items.add({
+                    group: idSubGroup,
+                    open: open,
+                    typeOfWork: typeOfWork,
+                    start: getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
+                    end: getMoment().hours(endHour).minutes(endMinute).seconds(0).milliseconds(0),
+                    className: className
+                });
+            }
+            $('#employeeModal').modal('hide');
+        }
+        function startme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Work', true, 'green');
+        }
+        function breakme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Break', true, 'red');
+        }
+        function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
+        }
+        function homeme(idSubGroup, hora, minuto, endHour, endMinute) {
+            var undefined;
+            addItem(idSubGroup, hora, minuto, undefined, undefined, 'Home', false, undefined);
+        }
+        function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
+            var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false })[0];
+            var c = montarNome(idSubGroup, name, false);
+            groups.update({ id: idSubGroup, content: c });
+            if (!horaInicial) horaInicial = 9;
+            if (!minutoInicial) minutoInicial = 0;
+            if (!horaFinal) horaFinal = horaInicial + 8;
+            if (!minutoFinal) minutoFinal = minutoInicial;
+            items.add({
+                group: idSubGroup,
+                start: getMoment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0),
+                end: getMoment().hours(horaFinal).minutes(minutoFinal).seconds(0).milliseconds(0),
+                type: 'background'
+            });
+            var group = getGroupByName(sector);
+            var idGroup;
+            if (group.length == 0) {
+                idGroup = groups.add({ content: sector, nestedGroups: [] })[0];
+            } else {
+                idGroup = group[0].id;
+            }
+            groups.get(idGroup).nestedGroups.push(idSubGroup);
+            timeline.setGroups(groups);
+            return idSubGroup;
+        }
+        function persist() {
+            const params = new URLSearchParams();
+            params.append('date', getMoment().format("YYYYMMDD"));
+            params.append('items', JSON.stringify(items.get()));
+            params.append('groups', JSON.stringify(groups.get()));
+            axios.post('/ts', params)
+            .then(function (response) {
+                console.log(response);
+            }).catch(function (error) {
+                console.log(error);
+            });
+        }
+        function load() {
+            axios.get('/ts', {
+                params: {
+                    date: getMoment().format("YYYYMMDD")
+                }
+            }).then(function (response) {
+                response.data.groups.forEach( function (item) {
+                    if (typeof item.start != 'undefined') {
+                        item.start = moment(item.start);
+                    }
+                    if (typeof item.end != 'undefined') {
+                        item.end = moment(item.end);
+                    }
+                });
+                groups.clear();
+                groups.add(response.data.groups);
+                items.clear();
+                response.data.items.forEach( function (item) {
+                    if (typeof item.start != 'undefined') {
+                        item.start = moment(item.start);
+                    }
+                    if (typeof item.end != 'undefined') {
+                        item.end = moment(item.end);
+                    }
+                });
+                items.add(response.data.items);
+            }).catch(function (error) {
+                groups.clear();
+                items.clear();
+            });
+            timeline.fit();
+        }
+        load();
     </script>
 </body>
 
