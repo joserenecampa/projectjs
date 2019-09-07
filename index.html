@@ -58,6 +58,7 @@
                                 <input type="text" class="form-control" v-model="item.end" v-if="item.type != 'Home'">
                                 <input type="text" readonly class="form-control" v-model="item.end"
                                     v-if="item.type === 'Home'">
+                                <input type="text" readonly class="form-control" v-model="item.elapsedTime">
                             </div>
                         </div>
                     </div>
@@ -93,23 +94,15 @@
                     <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
                 </div>
                 <div class="col">
-                    <input v-model="form.hora" type="text" class="form-control" id="hora" placeholder="Hora">
+                    <button type="button" v-on:click="orderGroupsBySumWork()" class="btn btn-primary">ByWork</button>
+                    <button type="button" v-on:click="orderGroupsByLastWork()" class="btn btn-primary">ByLast</button>
                 </div>
                 <div class="col">
-                    <input v-model="form.minuto" type="text" class="form-control" id="minuto" placeholder="Minuto">
+                    <button type="button" v-on:click="subOffSet()" class="btn btn-primary">-</button>
+                    <button type="button" v-on:click="addOffSet()" class="btn btn-primary">+</button>
                 </div>
                 <div class="col">
-                    <button type="button" v-on:click="orderGroupsBySumWork()"
-                        class="btn btn-primary btn-sm">ByWork</button>
-                    <button type="button" v-on:click="orderGroupsByLastWork()"
-                        class="btn btn-primary btn-sm">ByLast</button>
-                </div>
-                <div class="col">
-                    <button type="button" v-on:click="subOffSet()" class="btn btn-primary btn-sm">-</button>
-                    <button type="button" v-on:click="addOffSet()" class="btn btn-primary btn-sm">+</button>
-                </div>
-                <div class="col">
-                    Versao 2.0 BD
+                    Versao 2.0 Contador
                 </div>
             </div>
         </form>
@@ -117,8 +110,8 @@
         <form>
             <div class="form-row">
                 <div class="col">
-                    <button type="button" v-on:click="apagarSelecionados()" class="btn btn-primary btn-sm">X</button>
-                    <button type="button" v-on:click="mover()" class="btn btn-primary btn-sm">Move selected to</button>
+                    <button type="button" v-on:click="apagarSelecionados()" class="btn btn-primary">X</button>
+                    <button type="button" v-on:click="mover()" class="btn btn-primary">Move selected to</button>
                 </div>
                 <div class="col">
                     <select class="form-control" v-model="form.moverPara">
@@ -179,10 +172,13 @@
                     if (subGroup) {
                         this.employeeName = subGroup.employeeName;
                         var resultItems = [];
+                        var total = 0;
                         items.forEach(function (i) {
                             if (i.group == subGroup.id) {
                                 if (i) {
                                     var item = {};
+                                    var h = 0;
+                                    var m = 0;
                                     if (i.type && i.type == "background") {
                                         item.type = "Scheduled";
                                     } else if (i.typeOfWork) {
@@ -191,14 +187,27 @@
                                     item.start = (i.start.hours() < 10 ? "0" + i.start.hours() : i.start.hours()) + ':' + (i.start.minutes() < 10 ? "0" + i.start.minutes() : i.start.minutes());
                                     if (i.end) {
                                         item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
+                                        var h = (i.end.diff(i.start, 'hours') % 24);
+                                        var m = (i.end.diff(i.start, 'minutes') % 60);
+                                        if (item.type != "Scheduled") {
+                                            total = total + (h * 60) + m;
+                                        }
                                     } else {
                                         item.end = '';
                                     }
                                     item.id = i.id;
                                     item.open = i.open;
                                     item.selecionado = false;
+                                    item.elapsedTime = "" + (h < 10 && h >= 0 ? "0" + h : h) + ":" + (m < 10 && m >= 0 ? "0" + m : m);
                                     resultItems.push(item);
                                 }
+                            }
+                        });
+                        resultItems.forEach(function (item) {
+                            if (item.type === 'Home') {
+                                minute = Math.floor(total % 60);
+                                hours = Math.floor((total / 60) % 24);
+                                item.elapsedTime = (hours < 10 && hours >= 0 ? "0" + hours : hours) + ":" + (minute < 10 && minute >= 0 ? "0" + minute : minute);
                             }
                         });
                         this.items = resultItems;
@@ -223,6 +232,7 @@
                         }
                         items.update(item);
                     });
+                    this.preencherTimeSheet(event, idSubGroup);
                 },
                 removerSheets: function (idSubGroup, event) {
                     this.items.forEach(function (i) {
@@ -252,6 +262,8 @@
                         groups.update(gr);
                         moverTo.nestedGroups.push(gr.id);
                         groups.update(moverTo);
+                        gr.checked = false;
+                        checkme(gr, gr.id);
                     });
                 },
                 apagarSelecionados: function (event) {
@@ -261,6 +273,11 @@
                         }
                     });
                     subGrupos.forEach(function (gr) {
+                        items.forEach(function (item) {
+                            if (item.group === gr.id) {
+                                items.remove(item);
+                            }
+                        });
                         var parentGroup = groups.get(gr.nestedInGroup);
                         parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
                         groups.update(parentGroup);
@@ -279,10 +296,10 @@
             //axHeight: 500,
             //horizontalScroll: true,
             //verticalScroll: true,            
-            min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
-            max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
-            zoomMin: 1000 * 60 * 60 * 14,
-            zoomMax: 1000 * 60 * 60 * 14
+            //min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            //max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            //zoomMin: 1000 * 60 * 60 * 14,
+            //zoomMax: 1000 * 60 * 60 * 14
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
@@ -294,10 +311,10 @@
             var options = {
                 stack: false,
                 orientation: { axis: 'both' },
-                min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
-                max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
-                zoomMin: 1000 * 60 * 60 * 14,
-                zoomMax: 1000 * 60 * 60 * 14
+                //min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+                //max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
+                //zoomMin: 1000 * 60 * 60 * 14,
+                //zoomMax: 1000 * 60 * 60 * 14
             };
             timeline.setOptions(options);
             timeline.fit();
@@ -368,6 +385,7 @@
                 item.end = getMoment();
                 items.update(item);
             });
+            showGroupStatus();
         }
         function getLastOpenItemBySubGroup(groupId) {
             var results = items.get({
@@ -498,10 +516,53 @@
             params.append('groups', JSON.stringify(groups.get()));
             axios.post('/ts', params)
                 .then(function (response) {
-                    console.log(response);
                 }).catch(function (error) {
-                    console.log(error);
                 });
+        }
+        function showGroupStatus() {
+            groups.forEach(function (group) {
+                if (typeof group.employeeName === 'undefined' && typeof group.nestedGroups != 'undefined') {
+                    var qtdWorking = 0;
+                    var qtdBreaking = 0;
+                    var qtdHome = 0;
+                    var qtdLunching = 0;
+                    var qtdArriving = 0;
+                    var qtdLate = 0;
+                    var itemStatus;
+                    groups.forEach(function (subGroup) {
+                        if (subGroup.nestedInGroup === group.id) {
+                            items.forEach(function (item) {
+                                if (item.group === group.id) {
+                                    itemStatus = item;
+                                }
+                                if (item.group === subGroup.id) {
+                                    if (item.typeOfWork === 'Work' && item.open) {
+                                        qtdWorking++;
+                                    } else if (item.typeOfWork === 'Lunch' && item.open) {
+                                        qtdLunching++;
+                                    } else if (item.typeOfWork === 'Break' && item.open) {
+                                        qtdBreaking++;
+                                    } else if (item.typeOfWork === 'Home' && !item.open) {
+                                        qtdHome++;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    var content = "Work: " + qtdWorking + " - Break: " + qtdBreaking + " - Lunch: " + qtdLunching + " - Home: " + qtdHome;
+                    if (itemStatus != null && itemStatus.id != null) {
+                        itemStatus.content = content;
+                        itemStatus.start = getMoment();
+                        items.update(itemStatus);
+                    } else if (group != null && group.id != null) {
+                        items.add({
+                            group: group.id,
+                            start: getMoment(),
+                            content: content
+                        });
+                    }
+                }
+            });
         }
         function load() {
             axios.get('/ts', {
@@ -529,6 +590,7 @@
                     }
                 });
                 items.add(response.data.items);
+                showGroupStatus();
             }).catch(function (error) {
                 groups.clear();
                 items.clear();
