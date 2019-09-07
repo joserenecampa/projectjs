@@ -296,10 +296,10 @@
             //axHeight: 500,
             //horizontalScroll: true,
             //verticalScroll: true,            
-            //min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
-            //max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
-            //zoomMin: 1000 * 60 * 60 * 14,
-            //zoomMax: 1000 * 60 * 60 * 14
+            min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+            max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
+            zoomMin: 1000 * 60 * 60 * 14,
+            zoomMax: 1000 * 60 * 60 * 14
         };
         timeline = new vis.Timeline(container);
         timeline.setOptions(options);
@@ -311,10 +311,10 @@
             var options = {
                 stack: false,
                 orientation: { axis: 'both' },
-                //min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
-                //max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
-                //zoomMin: 1000 * 60 * 60 * 14,
-                //zoomMax: 1000 * 60 * 60 * 14
+                min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+                max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
+                zoomMin: 1000 * 60 * 60 * 14,
+                zoomMax: 1000 * 60 * 60 * 14
             };
             timeline.setOptions(options);
             timeline.fit();
