@@ -31,7 +31,7 @@ public class TimeSheetServlet extends HttpServlet {
                 String resultGroups = resultSet.getString(2);
                 resp.setStatus(200);
                 resp.getWriter().print("{\"items\": " + resultItems + ", \"groups\": " + resultGroups + "}");
-        } else {
+            } else {
                 resp.setStatus(404);
                 resp.getWriter().print("{\"error\": \"Data nao encontrada\"}");
             }

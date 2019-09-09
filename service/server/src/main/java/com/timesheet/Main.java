@@ -38,8 +38,8 @@ public class Main {
         ListenerInfo databaseListener = listener(DbStarter.class);
         DeploymentInfo servletBuilder = deployment().setClassLoader(Main.class.getClassLoader()).setContextPath("/")
                 .setDeploymentName("timesheet.war").setResourceManager(new PathResourceManager(Paths.get("."), 100))
-                .addListener(databaseListener).addInitParameter("db.url", DB_URL)
-                .addInitParameter("db.user", DB_USER).addInitParameter("db.password", DB_PASS).addServlets(timeSheetServlet);
+                .addListener(databaseListener).addInitParameter("db.url", DB_URL).addInitParameter("db.user", DB_USER)
+                .addInitParameter("db.password", DB_PASS).addServlets(timeSheetServlet);
         DeploymentManager manager = defaultContainer().addDeployment(servletBuilder);
         manager.deploy();
         HttpHandler servletHandler = null;
@@ -47,7 +47,8 @@ public class Main {
             servletHandler = manager.start();
         } catch (ServletException e) {
         }
-        Undertow server = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT), SERVICE_BIND).setHandler(servletHandler).build();
+        Undertow server = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT), SERVICE_BIND)
+                .setHandler(servletHandler).build();
         server.start();
     }
 
@@ -56,19 +57,25 @@ public class Main {
         try {
             conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
             try {
-                conn.createStatement().executeUpdate("create table timesheet (date varchar(8) primary key, items clob, groups clob)");
+                conn.createStatement()
+                        .executeUpdate("create table timesheet (date varchar(8) primary key, items clob, groups clob)");
             } catch (SQLException error) {
                 if (!error.getMessage().contains("already exists"))
                     throw new RuntimeException(error);
             }
             conn.close();
         } catch (Throwable error) {
-            try { if (conn != null && !conn.isClosed()) conn.close(); } catch (Throwable e) {}
+            try {
+                if (conn != null && !conn.isClosed())
+                    conn.close();
+            } catch (Throwable e) {
+            }
             System.out.println("Erro ao inicializar o banco de dados.");
             error.printStackTrace();
             System.exit(1);
-        }     
+        }
     }
+
     private static String initializeVariables(String variable) {
         String result = System.getenv(variable);
         if (result == null || result.isEmpty()) {
