@@ -1,6 +1,0 @@
-2019-09-08 23:21:41 jdbc[3]: exception
-org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "TIMESHEET" already exists; SQL statement:
-create table timesheet (date varchar(8) primary key, items clob, groups clob) [42101-199]
-2019-09-08 23:50:33 jdbc[3]: exception
-org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "TIMESHEET" already exists; SQL statement:
-create table timesheet (date varchar(8) primary key, items clob, groups clob) [42101-199]

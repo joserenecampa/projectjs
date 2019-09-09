@@ -1,7 +1,0 @@
-scp -i "rene-home.pem" github/projectjs/service/server/target/server-1.jar ec2-user@ec2-54-233-138-126.sa-east-1.compute.amazonaws.com:~/service.jar
-
-scp -i "rene-home.pem" github/projectjs/service/server/target/server-1.jar ec2-user@ec2-54-233-138-126.sa-east-1.compute.amazonaws.com:~/service.jar
-
-scp -i "rene-home.pem" ec2-user@ec2-54-233-138-126.sa-east-1.compute.amazonaws.com:~/timesheet.mv.db github/projectjs/timesheet.mv.db
-
-scp -i "rene-home.pem" github/projectjs/timesheet.mv.db ec2-user@ec2-54-233-138-126.sa-east-1.compute.amazonaws.com:~/timesheet.mv.db
