@@ -28,6 +28,11 @@
             background-color: blue;
             border-color: blue;
         }
+
+        .vis-item.aquamarine {
+            background-color: aquamarine;
+            border-color: aquamarine;
+        }
     </style>
 </head>
 
@@ -48,6 +53,7 @@
                                 <input class="form-control" type="checkbox" id="selecionado" v-model="item.selecionado"
                                     v-if="item.type != 'Scheduled'">
                                 <select class="form-control" v-model="item.type" v-if="item.type != 'Scheduled'">
+                                    <option>Push</option>
                                     <option>Work</option>
                                     <option>Break</option>
                                     <option>Lunch</option>
@@ -64,11 +70,13 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <div class="btn-group" role="group" aria-label="Basic example">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Basic example">
                             <button type="button" class="btn btn-secondary"
                                 v-on:click="removerSheets(modalIdGroup)">Remove</button>
                             <button type="button" class="btn btn-info"
                                 v-on:click="atualizarSheets(modalIdGroup)">Update</button>
+                            <button type="button" class="btn btn-light btn-sm"
+                                onclick="pushback(modalIdGroup)">Pushback</button>
                             <button type="button" class="btn btn-success" onclick="startme(modalIdGroup)">Start or
                                 Back</button>
                             <button type="button" class="btn btn-danger" onclick="breakme(modalIdGroup)">Break</button>
@@ -95,7 +103,7 @@
                     <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
                 </div>
                 <div class="col">
-                    Versao 2.0 Contador
+                    Versao 2.1 Pushback
                 </div>
             </div>
             <div>
@@ -194,7 +202,7 @@
                                         item.end = (i.end.hours() < 10 ? "0" + i.end.hours() : i.end.hours()) + ':' + (i.end.minutes() < 10 ? "0" + i.end.minutes() : i.end.minutes());
                                         var h = (i.end.diff(i.start, 'hours') % 24);
                                         var m = (i.end.diff(i.start, 'minutes') % 60);
-                                        if (item.type != "Scheduled" && item.type != "Lunch") {
+                                        if (item.type != "Scheduled" && item.type != "Lunch" && item.type != "Push") {
                                             total = total + (h * 60) + m;
                                         }
                                     } else {
@@ -223,6 +231,7 @@
                         var item = items.get(i.id);
                         item.typeOfWork = i.type;
                         switch (item.typeOfWork) {
+                            case 'Push': item.className = 'aquamarine'; break;
                             case 'Work': item.className = 'green'; break;
                             case 'Break': item.className = 'red'; break;
                             case 'Lunch': item.className = 'orange'; break;
@@ -401,6 +410,18 @@
                 return null;
             }
         }
+        function getScheduler(groupId) {
+            var results = items.get({
+                filter: function (item) {
+                    return (item.group == groupId && item.type == 'background');
+                }
+            });
+            if (results.length > 0) {
+                return results[0];
+            } else {
+                return null;
+            }
+        }
         function getGroupByName(groupName) {
             return groups.get({
                 filter: function (item) {
@@ -483,6 +504,14 @@
         }
         function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
             addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
+        }
+        function pushback(idSubGroup, hora, minuto, endHour, endMinute) {
+            var scheduler = getScheduler(idSubGroup);
+            hora = scheduler.start.hours();
+            minuto = scheduler.start.minutes();
+            endHour = scheduler.start.clone().add(1, 'hours').hours();
+            endMinute = scheduler.start.minutes();
+            addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Push', false, 'aquamarine');
         }
         function homeme(idSubGroup, hora, minuto, endHour, endMinute) {
             var undefined;
@@ -568,7 +597,7 @@
                                         } else if (item.typeOfWork === 'Home' && !item.open) {
                                             qtdHome++;
                                             qtdArriving--;
-                                        } else if (item.type === 'background') {
+                                        } else if (item.type === 'background' || item.typeOfWork === 'Push') {
                                             start = item.start;
                                             qtdArriving++;
                                         }
