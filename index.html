@@ -582,7 +582,7 @@
                             if (subGroup.nestedInGroup === group.id) {
                                 var start = null;
                                 items.forEach(function (item) {
-                                    if (item.group === group.id) {
+                                    if (item.group === group.id && item.type != 'background') {
                                         itemStatus = item;
                                     } else if (item.group === subGroup.id) {
                                         if (item.typeOfWork === 'Work' && item.open) {
@@ -611,7 +611,7 @@
                                 });
                             }
                         });
-                        var content = "Arriving: " + qtdArriving + " - Work: " + qtdWorking + " - Break: " + qtdBreaking + " - Lunch: " + qtdLunching + " - Home: " + qtdHome;
+                        var content = "" + qtdArriving + "A " + qtdWorking + "W " + qtdBreaking + "B " + qtdLunching + "L " + qtdHome + "H";
                         if (itemStatus != null && itemStatus.id != null) {
                             itemStatus.content = content;
                             itemStatus.start = getMoment();
