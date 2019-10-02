@@ -1,0 +1,9 @@
+{
+    "group": "8b3c8569-9ec8-45b7-8dad-34c5701d4d98",
+    "start": "2019-09-22T13:00:00.000Z",
+    "end": "2019-09-22T20:30:00.000Z",
+    "persist": true,
+    "type": "background",
+    "id": "bad60ff4-a85f-44b9-ac61-8f64ea45e156",
+    "typeOfWork": "Scheduled"
+}

@@ -41,56 +41,167 @@ public class TimeSheetServlet extends HttpServlet {
     }
 
     @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        resp.setHeader("Content-Type", "application/json");
+        Connection conn = (Connection) getServletContext().getAttribute("connection");
+        String item = req.getParameter("item");
+        String date = req.getParameter("date");
+        if (item != null && !item.isEmpty()) {
+            deleteItem(conn, date, item, resp);
+        } else {
+            resp.setStatus(400);
+            resp.getWriter().print("{\"error\": \"Falta informar o item\"}");
+        }
+    }
+
+    @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.setHeader("Content-Type", "application/json");
         Connection conn = (Connection) getServletContext().getAttribute("connection");
+        String item = req.getParameter("item");
         String date = req.getParameter("date");
         String items = req.getParameter("items");
         String groups = req.getParameter("groups");
-        if ((items == null || items.isEmpty()) || (groups == null || groups.isEmpty())) {
-            resp.setStatus(400);
-            resp.getWriter().print("{\"error\": \"Faltam informar os items ou os grupos\"}");
+        if (item != null && !item.isEmpty()) {
+
+            saveOnlyOneItem(conn, date, item, resp);
+
         } else {
-            try {
-                PreparedStatement ps = conn.prepareStatement("select items, groups from timesheet where date = ?");
-                ps.setString(1, date);
-                ResultSet resultSet = ps.executeQuery();
-                if (resultSet.next()) {
-                    ps = conn.prepareStatement("update timesheet set items = ?, groups = ? where date = ?");
-                    ps.setCharacterStream(1, new InputStreamReader(new ByteArrayInputStream(items.getBytes())));
-                    ps.setCharacterStream(2, new InputStreamReader(new ByteArrayInputStream(groups.getBytes())));
-                    ps.setString(3, date);
-                    int total = ps.executeUpdate();
-                    if (total > 0) {
-                        resp.setStatus(200);
-                        resp.getWriter().print("{\"status\": \"data atualizada com sucesso\"}");
-                    } else {
-                        resp.setStatus(500);
-                        resp.getWriter().print(
-                                "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
-                    }
-                } else {
-                    ps.close();
-                    ps = conn.prepareStatement("insert into timesheet (date, items, groups) values (?,?,?)");
+            if ((items == null || items.isEmpty()) || (groups == null || groups.isEmpty())) {
+                resp.setStatus(400);
+                resp.getWriter().print("{\"error\": \"Faltam informar os items ou os grupos\"}");
+            } else {
+                try {
+                    PreparedStatement ps = conn.prepareStatement("select items, groups from timesheet where date = ?");
                     ps.setString(1, date);
-                    ps.setCharacterStream(2, new InputStreamReader(new ByteArrayInputStream(items.getBytes())));
-                    ps.setCharacterStream(3, new InputStreamReader(new ByteArrayInputStream(groups.getBytes())));
-                    int total = ps.executeUpdate();
-                    if (total > 0) {
-                        resp.setStatus(200);
-                        resp.getWriter().print("{\"status\": \"data inserida com sucesso\"}");
+                    ResultSet resultSet = ps.executeQuery();
+                    if (resultSet.next()) {
+                        ps = conn.prepareStatement("update timesheet set items = ?, groups = ? where date = ?");
+                        ps.setCharacterStream(1, new InputStreamReader(new ByteArrayInputStream(items.getBytes())));
+                        ps.setCharacterStream(2, new InputStreamReader(new ByteArrayInputStream(groups.getBytes())));
+                        ps.setString(3, date);
+                        int total = ps.executeUpdate();
+                        if (total > 0) {
+                            resp.setStatus(200);
+                            resp.getWriter().print("{\"status\": \"data atualizada com sucesso\"}");
+                        } else {
+                            resp.setStatus(500);
+                            resp.getWriter().print(
+                                    "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
+                        }
                     } else {
-                        resp.setStatus(500);
-                        resp.getWriter().print(
-                                "{\"error\": \"nao foi possivel inserir os dados. nao retornou valor aceitavel\"}");
+                        ps.close();
+                        ps = conn.prepareStatement("insert into timesheet (date, items, groups) values (?,?,?)");
+                        ps.setString(1, date);
+                        ps.setCharacterStream(2, new InputStreamReader(new ByteArrayInputStream(items.getBytes())));
+                        ps.setCharacterStream(3, new InputStreamReader(new ByteArrayInputStream(groups.getBytes())));
+                        int total = ps.executeUpdate();
+                        if (total > 0) {
+                            resp.setStatus(200);
+                            resp.getWriter().print("{\"status\": \"data inserida com sucesso\"}");
+                        } else {
+                            resp.setStatus(500);
+                            resp.getWriter().print(
+                                    "{\"error\": \"nao foi possivel inserir os dados. nao retornou valor aceitavel\"}");
+                        }
                     }
+                } catch (Throwable error) {
+                    error.printStackTrace();
+                    resp.setStatus(500);
+                    resp.getWriter().print("{\"error\": \"" + error.getMessage() + "\"}");
                 }
-            } catch (Throwable error) {
-                error.printStackTrace();
-                resp.setStatus(500);
-                resp.getWriter().print("{\"error\": \"" + error.getMessage() + "\"}");
             }
         }
+    }
+
+    private void saveOnlyOneItem(Connection conn, String date, String item, HttpServletResponse resp) {
+        String itemId = extractItemId(item);
+        String type = extractType(item);
+        try {
+            PreparedStatement ps = conn.prepareStatement("select item from timesheet2 where date = ? and itemId = ?");
+            ps.setString(1, date);
+            ps.setString(2, itemId);
+            ResultSet resultSet = ps.executeQuery();
+            if (resultSet.next()) {
+                ps = conn.prepareStatement("update timesheet2 set item = ?, type = ? where date = ? and itemId = ?");
+                ps.setCharacterStream(1, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
+                ps.setString(2, type);
+                ps.setString(3, date);
+                ps.setString(4, itemId);
+                int total = ps.executeUpdate();
+                if (total > 0) {
+                    resp.setStatus(200);
+                    resp.getWriter().print("{\"status\": \"data atualizada com sucesso\"}");
+                } else {
+                    resp.setStatus(500);
+                    resp.getWriter().print(
+                            "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
+                }
+            } else {
+                ps.close();
+                ps = conn.prepareStatement("insert into timesheet2 (date, itemId, item, type) values (?,?,?,?)");
+                ps.setString(1, date);
+                ps.setString(2, itemId);
+                ps.setCharacterStream(3, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
+                ps.setString(4, type);
+                int total = ps.executeUpdate();
+                if (total > 0) {
+                    resp.setStatus(200);
+                    resp.getWriter().print("{\"status\": \"data inserida com sucesso\"}");
+                } else {
+                    resp.setStatus(500);
+                    resp.getWriter()
+                            .print("{\"error\": \"nao foi possivel inserir os dados. nao retornou valor aceitavel\"}");
+                }
+            }
+        } catch (Throwable error) {
+            error.printStackTrace();
+            resp.setStatus(500);
+            try {
+                resp.getWriter().print("{\"error\": \"" + error.getMessage() + "\"}");
+            } catch (IOException e) {
+            }
+        }
+    }
+
+    private void deleteItem(Connection conn, String date, String item, HttpServletResponse resp) {
+        String itemId = extractItemId(item);
+        try {
+            PreparedStatement ps = conn.prepareStatement("delete from timesheet2 where date = ? and itemId = ?");
+            ps.setString(1, date);
+            ps.setString(2, itemId);
+            int total = ps.executeUpdate();
+            if (total == 1) {
+                resp.setStatus(204);
+            } else {
+                resp.setStatus(500);
+                resp.getWriter().print(
+                        "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
+            }
+        } catch (Throwable error) {
+            error.printStackTrace();
+            resp.setStatus(500);
+            try {
+                resp.getWriter().print("{\"error\": \"" + error.getMessage() + "\"}");
+            } catch (IOException e) {
+            }
+        }
+    }
+
+    private String extractType(String item) {
+        return item.contains("\"group\"") && (item.contains("\"typeOfWork\"") || item.contains("background")) ? "I" : "G";
+    }
+
+    private String extractItemId(String item) {
+        // System.out.println(item);
+        String patternInicio = "\"id\"";
+        String patternFim = "\"";
+        int inicio = item.indexOf(patternInicio);
+        inicio = item.indexOf("\"", inicio + patternInicio.length()) + 1;
+        int fim = item.indexOf(patternFim, inicio);
+        String itemId = item.substring(inicio, fim);
+        System.out.println(itemId);
+        return itemId;
     }
 
     @Override
@@ -101,5 +212,4 @@ public class TimeSheetServlet extends HttpServlet {
         resp.addHeader("Access-Control-Allow-Origin", "*");
         resp.setStatus(204);
     }
-
 }

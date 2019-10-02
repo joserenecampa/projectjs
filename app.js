@@ -145,9 +145,14 @@ var app = new Vue({
         }
     }
 })
+
+
 var items = new vis.DataSet([]);
-var timeline = null;
 var groups = new vis.DataSet([]);
+items.on('*', itemsOn);
+groups.on('*', groupsOn);
+
+var timeline = null;
 var container = document.getElementById("TimeLine");
 timeline = new vis.Timeline(container);
 timeline.setGroups(groups);
@@ -159,12 +164,12 @@ function updateOptions() {
         stack: false,
         orientation: { axis: 'both' },
         maxHeight: 490,
-        min: getMoment().hours(0).minutes(0).seconds(0).milliseconds(0),
-        max: getMoment().hours(23).minutes(59).seconds(59).milliseconds(0),
+        min: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
+        max: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
         start: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
         end: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
-        zoomMin: 1000 * 60 * 60 * 1,
-        zoomMax: 1000 * 60 * 60 * 23
+        zoomMin: 1000 * 60 * 60 * 14,
+        zoomMax: 1000 * 60 * 60 * 14
     };
     timeline.setOptions(options);
     timeline.fit();
@@ -238,8 +243,8 @@ function actionFired(properties) {
         if (hoje === dia) {
             item.end = getMoment();
             group = getGroupById(item.group);
-            var diff = item.end.diff(item.start, 'hours');
-            if (group.className != 'toBreak' && item.typeOfWork === 'Work' && diff > 2) {
+            var diffMinutes = item.end.diff(item.start, 'minutes');
+            if (group.className != 'toBreak' && item.typeOfWork === 'Work' && diffMinutes >= 90) {
                 group.className = 'toBreak';
                 groups.update(group);
             } else if (group.className === 'toBreak' && item.typeOfWork != 'Work') {
@@ -399,7 +404,9 @@ function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFi
     } else {
         idGroup = group[0].id;
     }
-    groups.get(idGroup).nestedGroups.push(idSubGroup);
+    var g = groups.get(idGroup)
+    g.nestedGroups.push(idSubGroup);
+    groups.update(g);
     timeline.setGroups(groups);
     return idSubGroup;
 }
@@ -433,33 +440,20 @@ function showGroupStatus() {
             if (typeof group.employeeName === 'undefined' && typeof group.nestedGroups != 'undefined') {
                 var qtdWorking = 0;
                 var qtdBreaking = 0;
-                var qtdHome = 0;
                 var qtdLunching = 0;
-                var qtdArriving = 0;
-                var qtdLate = 0;
                 var itemStatus;
                 groups.forEach(function (subGroup) {
                     if (subGroup.nestedInGroup === group.id) {
-                        var start = null;
                         items.forEach(function (item) {
                             if (item.group === group.id && item.type != 'background') {
                                 itemStatus = item;
                             } else if (item.group === subGroup.id) {
                                 if (item.typeOfWork === 'Work' && item.open) {
                                     qtdWorking++;
-                                    qtdArriving--;
                                 } else if (item.typeOfWork === 'Lunch' && item.open) {
                                     qtdLunching++;
-                                    qtdArriving--;
                                 } else if (item.typeOfWork === 'Break' && item.open) {
                                     qtdBreaking++;
-                                    qtdArriving--;
-                                } else if (item.typeOfWork === 'Home' && !item.open) {
-                                    qtdHome++;
-                                    qtdArriving--;
-                                } else if (item.type === 'background') {
-                                    start = item.start;
-                                    qtdArriving++;
                                 }
                             }
                         });
@@ -471,14 +465,12 @@ function showGroupStatus() {
                         });
                     }
                 });
-                var content = "" + qtdArriving + "A " + qtdWorking + "W " + qtdBreaking + "B " + qtdLunching + "L " + qtdHome + "H";
+                var content = "" + qtdWorking + "F " + qtdBreaking + "B " + qtdLunching + "L " + (qtdWorking + qtdBreaking + qtdLunching) + "T";
                 if (itemStatus != null && itemStatus.id != null) {
                     itemStatus.content = content;
                     itemStatus.start = getMoment();
                     items.update(itemStatus);
                 } else if (group != null && group.id != null) {
-                    group.subgroupStack = true;
-                    groups.update(group);
                     items.add({
                         group: group.id,
                         start: getMoment(),
@@ -504,8 +496,95 @@ function fillSectors() {
     if (group.length == 0) {
         groups.add({ id: 'Detail', content: 'Detail', nestedGroups: [] })[0];
     }
+    group = getGroupByName("Cash and Sale");
+    if (group.length == 0) {
+        groups.add({ id: 'Cash and Sale', content: 'Cash and Sale', nestedGroups: [] })[0];
+    }
     timeline.setGroups(groups);
 }
+
+function itemsOn(event, properties, senderId) {
+    if (event === 'add' && typeof properties.items != 'undefined') {
+        properties.items.forEach(function (item) {
+            var i = items.get(item);
+            if (typeof i.persist != 'undefined' && i.persist) {
+                console.log('ITEM: ADICIONAR O ITEM ' + i.id);
+                persistItem(i);
+            }
+        });
+    }
+    if (typeof properties != 'undefined' && typeof properties.data != 'undefined') {
+        var itemNew = properties.data[0];
+        var itemOld = properties.oldData[0];
+        if (itemNew.id === itemOld.id) {
+            if (typeof itemNew.persist != 'undefined' && itemNew.persist) {
+                if (!itemNew.open) {
+                    if (itemNew.typeOfWork != itemOld.typeOfWork || itemNew.start.diff(itemOld.start) != 0 || itemNew.end.diff(itemOld.end) != 0) {
+                        console.log('ITEM: ATUALIZAR O ITEM ' + itemNew.id + '. Properties: ', properties);
+                        persistItem(itemNew);
+                    }
+                } else if (itemNew.start.diff(itemOld.start) != 0) {
+                    console.log('ITEM: ATUALIZAR O ITEM ' + itemNew.id + '. Properties: ', properties);
+                    persistItem(itemNew);
+                }
+            }
+        }
+    }
+    if (event === 'remove') {
+        if (typeof properties.items != 'undefined' && properties.items.length > 0) {
+            console.log('ITEM: REMOVER O ITEM ' + properties.items[0] + '. Properties: ', properties);
+            removeItem(properties.items[0]);
+        }
+    }
+}
+
+function groupsOn(event, properties, senderId) {
+    if (event === 'add' && typeof properties.items != 'undefined') {
+        properties.items.forEach(function (item) {
+            var i = groups.get(item);
+            console.log('GRUPO: ADICIONAR O ITEM ' + i.id);
+            persistItem(i);
+        });
+    }
+    if (typeof properties != 'undefined' && typeof properties.data != 'undefined') {
+        console.log('GRUPO: ATUALIZAR O ITEM. Properties: ', properties);
+        var itemNew = properties.data[0];
+        var itemOld = properties.oldData[0];
+        if (itemNew.id === itemOld.id) {
+            if (typeof itemNew.persist != 'undefined' && itemNew.persist) {
+                console.log('GRUPO: ATUALIZAR O ITEM ' + itemNew.id + '. Properties: ', properties);
+                persistItem(itemNew);
+            }
+        }
+    }
+    if (event === 'remove') {
+        if (typeof properties.items != 'undefined' && properties.items.length > 0) {
+            console.log('GRUPO: REMOVER O ITEM ' + properties.items[0] + '. Properties: ', properties);
+            removeItem(properties.items[0]);
+        }
+    }
+}
+
+function persistItem(item) {
+    const params = new URLSearchParams();
+    params.append('date', getMoment().format("YYYYMMDD"));
+    params.append('item', JSON.stringify(item));
+    axios.post('/ts', params)
+    .then(function (response) {
+    }).catch(function (error) {
+    });
+}
+
+function removeItem(item) {
+    const params = {};
+    params.date = getMoment().format("YYYYMMDD");
+    params.item = JSON.stringify(item);
+    axios.delete('/ts', params)
+    .then(function (response) {
+    }).catch(function (error) {
+    });
+}
+
 function load() {
     timeline.off('currentTimeTick');
     axios.get('/ts', {
@@ -521,9 +600,10 @@ function load() {
                 item.end = moment(item.end);
             }
         });
+        groups.off('*', groupsOn);
         groups.clear();
+        groups.on('*', groupsOn);
         groups.add(response.data.groups);
-        items.clear();
         response.data.items.forEach(function (item) {
             if (typeof item.start != 'undefined') {
                 item.start = moment(item.start);
@@ -532,13 +612,20 @@ function load() {
                 item.end = moment(item.end);
             }
         });
+        items.off('*', itemsOn);
+        items.clear();
+        items.on('*', itemsOn);
         items.add(response.data.items);
         fillSectors();
         showGroupStatus();
         timeline.on('currentTimeTick', actionFired);
     }).catch(function (error) {
+        groups.off('*', groupsOn);
         groups.clear();
+        groups.on('*', groupsOn);
+        items.off('*', itemsOn);
         items.clear();
+        items.on('*', itemsOn);
         fillSectors();
         timeline.on('currentTimeTick', actionFired);
     });

@@ -63,6 +63,13 @@ public class Main {
                 if (!error.getMessage().contains("already exists"))
                     throw new RuntimeException(error);
             }
+            try {
+                conn.createStatement().executeUpdate(
+                        "create table timesheet2 (date varchar(8), itemId varchar(36), item clob, type char, primary key (date, itemId))");
+            } catch (SQLException error) {
+                if (!error.getMessage().contains("already exists"))
+                    throw new RuntimeException(error);
+            }
             conn.close();
         } catch (Throwable error) {
             try {
