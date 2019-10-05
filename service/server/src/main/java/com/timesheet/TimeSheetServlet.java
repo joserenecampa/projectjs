@@ -12,12 +12,58 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException;
+
 public class TimeSheetServlet extends HttpServlet {
 
     private static final long serialVersionUID = -7527127644015900442L;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        // loadComplete(req, resp);
+        loadFromTimeseet2(req, resp);
+
+    }
+
+    private void loadFromTimeseet2(HttpServletRequest req, HttpServletResponse resp) {
+        resp.setHeader("Content-Type", "application/json");
+        Connection conn = (Connection) getServletContext().getAttribute("connection");
+        String date = req.getParameter("date");
+        try {
+            StringBuilder items = new StringBuilder("[");
+            PreparedStatement ps = conn.prepareStatement("select item from timesheet2 where date = ? and type = 'I'");
+            ps.setString(1, date);
+            ResultSet resultSet = ps.executeQuery();
+            boolean inicio = true;
+            while (resultSet.next()) {
+                if (!inicio)
+                    items.append(",");
+                items.append(resultSet.getString(1));
+                inicio = false;
+            }
+            items.append("]");
+            StringBuilder groups = new StringBuilder("[");
+            ps.close();
+            ps = conn.prepareStatement("select item from timesheet2 where date = ? and type = 'G'");
+            ps.setString(1, date);
+            resultSet = ps.executeQuery();
+            inicio = true;
+            while (resultSet.next()) {
+                if (!inicio)
+                    groups.append(",");
+                groups.append(resultSet.getString(1));
+                inicio = false;
+            }
+            groups.append("]");
+            resp.setStatus(200);
+            resp.getWriter().print("{\"items\": " + items.toString() + ", \"groups\": " + groups.toString() + "}");
+        } catch (Throwable error) {
+            error.printStackTrace();
+        }
+    }
+
+    private void loadComplete(HttpServletRequest req, HttpServletResponse resp) {
         resp.setHeader("Content-Type", "application/json");
         Connection conn = (Connection) getServletContext().getAttribute("connection");
         String date = req.getParameter("date");
@@ -29,7 +75,6 @@ public class TimeSheetServlet extends HttpServlet {
                 resp.setStatus(200);
                 String resultItems = resultSet.getString(1);
                 String resultGroups = resultSet.getString(2);
-                resp.setStatus(200);
                 resp.getWriter().print("{\"items\": " + resultItems + ", \"groups\": " + resultGroups + "}");
             } else {
                 resp.setStatus(404);
@@ -44,10 +89,10 @@ public class TimeSheetServlet extends HttpServlet {
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.setHeader("Content-Type", "application/json");
         Connection conn = (Connection) getServletContext().getAttribute("connection");
-        String item = req.getParameter("item");
+        String itemId = req.getParameter("itemId");
         String date = req.getParameter("date");
-        if (item != null && !item.isEmpty()) {
-            deleteItem(conn, date, item, resp);
+        if (itemId != null && !itemId.isEmpty()) {
+            deleteItem(conn, date, itemId, resp);
         } else {
             resp.setStatus(400);
             resp.getWriter().print("{\"error\": \"Falta informar o item\"}");
@@ -115,6 +160,10 @@ public class TimeSheetServlet extends HttpServlet {
     }
 
     private void saveOnlyOneItem(Connection conn, String date, String item, HttpServletResponse resp) {
+        this.saveOnlyOneItem(conn, date, item, resp, 1);
+    }
+
+    private void saveOnlyOneItem(Connection conn, String date, String item, HttpServletResponse resp, int tentativa) {
         String itemId = extractItemId(item);
         String type = extractType(item);
         try {
@@ -154,6 +203,12 @@ public class TimeSheetServlet extends HttpServlet {
                             .print("{\"error\": \"nao foi possivel inserir os dados. nao retornou valor aceitavel\"}");
                 }
             }
+        } catch (JdbcSQLIntegrityConstraintViolationException error) {
+            if (tentativa > 5) {
+                throw new RuntimeException("Numero de tentativas foi excedido.", error);
+            } else {
+                this.saveOnlyOneItem(conn, date, item, resp, tentativa + 1);
+            }
         } catch (Throwable error) {
             error.printStackTrace();
             resp.setStatus(500);
@@ -164,8 +219,8 @@ public class TimeSheetServlet extends HttpServlet {
         }
     }
 
-    private void deleteItem(Connection conn, String date, String item, HttpServletResponse resp) {
-        String itemId = extractItemId(item);
+    private void deleteItem(Connection conn, String date, String itemId, HttpServletResponse resp) {
+        // String itemId = extractItemId(item);
         try {
             PreparedStatement ps = conn.prepareStatement("delete from timesheet2 where date = ? and itemId = ?");
             ps.setString(1, date);
@@ -189,18 +244,17 @@ public class TimeSheetServlet extends HttpServlet {
     }
 
     private String extractType(String item) {
-        return item.contains("\"group\"") && (item.contains("\"typeOfWork\"") || item.contains("background")) ? "I" : "G";
+        return item.contains("\"group\"") && (item.contains("\"typeOfWork\"") || item.contains("background")) ? "I"
+                : "G";
     }
 
     private String extractItemId(String item) {
-        // System.out.println(item);
         String patternInicio = "\"id\"";
         String patternFim = "\"";
         int inicio = item.indexOf(patternInicio);
         inicio = item.indexOf("\"", inicio + patternInicio.length()) + 1;
         int fim = item.indexOf(patternFim, inicio);
         String itemId = item.substring(inicio, fim);
-        System.out.println(itemId);
         return itemId;
     }
 

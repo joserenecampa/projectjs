@@ -138,7 +138,9 @@ var app = new Vue({
                     }
                 });
                 var parentGroup = groups.get(gr.nestedInGroup);
-                parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                if (typeof parentGroup.nestedGroups != 'undefined' && parentGroup.nestedGroups.length > 0) {
+                    parentGroup.nestedGroups = parentGroup.nestedGroups.filter(function (v) { return v != gr.id; });
+                }
                 groups.update(parentGroup);
                 groups.remove(gr.id);
             });
@@ -486,19 +488,19 @@ function showGroupStatus() {
 function fillSectors() {
     var group = getGroupByName("Wipedown");
     if (group.length == 0) {
-        groups.add({ id: 'Wipedown', content: 'Wipedown', nestedGroups: [] })[0];
+        groups.add({ id: 'Wipedown', order: 0, content: 'Wipedown', nestedGroups: [] })[0];
     }
     group = getGroupByName("Prep");
     if (group.length == 0) {
-        groups.add({ id: 'Prep', content: 'Prep', nestedGroups: [] })[0];
+        groups.add({ id: 'Prep', order: 1, content: 'Prep', nestedGroups: [] })[0];
     }
     group = getGroupByName("Detail");
     if (group.length == 0) {
-        groups.add({ id: 'Detail', content: 'Detail', nestedGroups: [] })[0];
+        groups.add({ id: 'Detail', order: 2, content: 'Detail', nestedGroups: [] })[0];
     }
     group = getGroupByName("Cash and Sale");
     if (group.length == 0) {
-        groups.add({ id: 'Cash and Sale', content: 'Cash and Sale', nestedGroups: [] })[0];
+        groups.add({ id: 'Cash and Sale', order: 3, content: 'Cash and Sale', nestedGroups: [] })[0];
     }
     timeline.setGroups(groups);
 }
@@ -508,32 +510,31 @@ function itemsOn(event, properties, senderId) {
         properties.items.forEach(function (item) {
             var i = items.get(item);
             if (typeof i.persist != 'undefined' && i.persist) {
-                console.log('ITEM: ADICIONAR O ITEM ' + i.id);
                 persistItem(i);
             }
         });
     }
     if (typeof properties != 'undefined' && typeof properties.data != 'undefined') {
-        var itemNew = properties.data[0];
-        var itemOld = properties.oldData[0];
-        if (itemNew.id === itemOld.id) {
-            if (typeof itemNew.persist != 'undefined' && itemNew.persist) {
-                if (!itemNew.open) {
-                    if (itemNew.typeOfWork != itemOld.typeOfWork || itemNew.start.diff(itemOld.start) != 0 || itemNew.end.diff(itemOld.end) != 0) {
-                        console.log('ITEM: ATUALIZAR O ITEM ' + itemNew.id + '. Properties: ', properties);
+        for (i = 0; i < properties.data.length; i++) {
+            var itemNew = properties.data[i];
+            var itemOld = properties.oldData[i];
+            if (itemNew.id === itemOld.id) {
+                if (typeof itemNew.persist != 'undefined' && itemNew.persist) {
+                    if (!itemNew.open) {
+                        if (itemNew.typeOfWork != itemOld.typeOfWork || itemNew.start.diff(itemOld.start) != 0 || itemNew.end.diff(itemOld.end) != 0) {
+                            persistItem(itemNew);
+                        }
+                    } else if (itemNew.start.diff(itemOld.start) != 0) {
                         persistItem(itemNew);
                     }
-                } else if (itemNew.start.diff(itemOld.start) != 0) {
-                    console.log('ITEM: ATUALIZAR O ITEM ' + itemNew.id + '. Properties: ', properties);
-                    persistItem(itemNew);
                 }
             }
         }
     }
     if (event === 'remove') {
         if (typeof properties.items != 'undefined' && properties.items.length > 0) {
-            console.log('ITEM: REMOVER O ITEM ' + properties.items[0] + '. Properties: ', properties);
-            removeItem(properties.items[0]);
+            console.log("ITEM: REMOVER ", properties);
+            removeItem(properties.oldData[0]);
         }
     }
 }
@@ -541,26 +542,24 @@ function itemsOn(event, properties, senderId) {
 function groupsOn(event, properties, senderId) {
     if (event === 'add' && typeof properties.items != 'undefined') {
         properties.items.forEach(function (item) {
-            var i = groups.get(item);
-            console.log('GRUPO: ADICIONAR O ITEM ' + i.id);
-            persistItem(i);
+            persistItem(groups.get(item));
         });
     }
     if (typeof properties != 'undefined' && typeof properties.data != 'undefined') {
-        console.log('GRUPO: ATUALIZAR O ITEM. Properties: ', properties);
-        var itemNew = properties.data[0];
-        var itemOld = properties.oldData[0];
-        if (itemNew.id === itemOld.id) {
-            if (typeof itemNew.persist != 'undefined' && itemNew.persist) {
-                console.log('GRUPO: ATUALIZAR O ITEM ' + itemNew.id + '. Properties: ', properties);
+        for (i = 0; i < properties.data.length; i++) {
+            var itemNew = properties.data[i];
+            var itemOld = properties.oldData[i];
+            if (itemNew.id === itemOld.id) {
                 persistItem(itemNew);
             }
         }
     }
     if (event === 'remove') {
         if (typeof properties.items != 'undefined' && properties.items.length > 0) {
-            console.log('GRUPO: REMOVER O ITEM ' + properties.items[0] + '. Properties: ', properties);
-            removeItem(properties.items[0]);
+            for (i = 0; i < properties.oldData.length; i++) {
+                console.log("GRUPO: REMOVER ", properties);
+                removeItem(properties.oldData[i]);
+            }
         }
     }
 }
@@ -569,20 +568,14 @@ function persistItem(item) {
     const params = new URLSearchParams();
     params.append('date', getMoment().format("YYYYMMDD"));
     params.append('item', JSON.stringify(item));
-    axios.post('/ts', params)
-    .then(function (response) {
-    }).catch(function (error) {
-    });
+    axios.post('/ts', params);
 }
 
 function removeItem(item) {
     const params = {};
     params.date = getMoment().format("YYYYMMDD");
     params.item = JSON.stringify(item);
-    axios.delete('/ts', params)
-    .then(function (response) {
-    }).catch(function (error) {
-    });
+    axios.delete('/ts?date='+params.date+'&itemId='+item.id, params);
 }
 
 function load() {
@@ -600,9 +593,9 @@ function load() {
                 item.end = moment(item.end);
             }
         });
+        items.off('*', itemsOn);
         groups.off('*', groupsOn);
         groups.clear();
-        groups.on('*', groupsOn);
         groups.add(response.data.groups);
         response.data.items.forEach(function (item) {
             if (typeof item.start != 'undefined') {
@@ -612,22 +605,22 @@ function load() {
                 item.end = moment(item.end);
             }
         });
-        items.off('*', itemsOn);
         items.clear();
-        items.on('*', itemsOn);
         items.add(response.data.items);
         fillSectors();
         showGroupStatus();
         timeline.on('currentTimeTick', actionFired);
+        items.on('*', itemsOn);
+        groups.on('*', groupsOn);        
     }).catch(function (error) {
+        items.off('*', itemsOn);
         groups.off('*', groupsOn);
         groups.clear();
-        groups.on('*', groupsOn);
-        items.off('*', itemsOn);
         items.clear();
-        items.on('*', itemsOn);
         fillSectors();
         timeline.on('currentTimeTick', actionFired);
+        items.on('*', itemsOn);
+        groups.on('*', groupsOn);        
     });
     timeline.fit();
 }

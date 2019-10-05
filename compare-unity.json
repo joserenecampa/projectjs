@@ -1,0 +1,98 @@
+[
+    {
+        "id": "Detail",
+        "content": "Detail",
+        "nestedGroups": [
+            "1b0bcc37-0c30-46f0-a1f5-890bb08155d8",
+            "6e508516-3175-410a-a5a8-6242a94527de"
+        ]
+    },
+    {
+        "id": "Wipedown",
+        "content": "Wipedown",
+        "nestedGroups": [
+            "cbc0f40a-d5eb-4ed7-975f-6c647d843186",
+            "297c02ae-8421-42e1-8c52-3da8f702f004"
+        ]
+    },
+    {
+        "id": "Prep",
+        "content": "Prep",
+        "nestedGroups": [
+            "d881f26a-3a51-45d0-98d5-02e162714027",
+            "771a30a6-323f-49f6-a9a9-354d5253b9eb"
+        ]
+    },
+    {
+        "id": "Cash and Sale",
+        "content": "Cash and Sale",
+        "nestedGroups": [
+            "4b0747a3-be8a-4a9c-81a2-dd8ff561d4f5",
+            "06f4d22b-85d6-45c2-b02b-cfb52c5ad7b1"
+        ]
+    },
+    {
+        "employeeName": "employee 01",
+        "order": 0,
+        "checked": false,
+        "id": "4b0747a3-be8a-4a9c-81a2-dd8ff561d4f5",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"4b0747a3-be8a-4a9c-81a2-dd8ff561d4f5\");' type='checkbox' >employee 01",
+        "nestedInGroup": "Cash and Sale"
+    },
+    {
+        "employeeName": "employee 02",
+        "order": 0,
+        "checked": false,
+        "id": "d881f26a-3a51-45d0-98d5-02e162714027",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"d881f26a-3a51-45d0-98d5-02e162714027\");' type='checkbox' >employee 02",
+        "nestedInGroup": "Prep"
+    },
+    {
+        "employeeName": "employee 03",
+        "order": 0,
+        "checked": false,
+        "id": "1b0bcc37-0c30-46f0-a1f5-890bb08155d8",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"1b0bcc37-0c30-46f0-a1f5-890bb08155d8\");' type='checkbox' >employee 03",
+        "nestedInGroup": "Detail"
+    },
+    {
+        "employeeName": "employee 04",
+        "order": 0,
+        "checked": false,
+        "id": "cbc0f40a-d5eb-4ed7-975f-6c647d843186",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"cbc0f40a-d5eb-4ed7-975f-6c647d843186\");' type='checkbox' >employee 04",
+        "nestedInGroup": "Wipedown"
+    },
+    {
+        "employeeName": "employee 05",
+        "order": 0,
+        "checked": false,
+        "id": "297c02ae-8421-42e1-8c52-3da8f702f004",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"297c02ae-8421-42e1-8c52-3da8f702f004\");' type='checkbox' >employee 05",
+        "nestedInGroup": "Wipedown"
+    },
+    {
+        "employeeName": "employee 06",
+        "order": 0,
+        "checked": false,
+        "id": "6e508516-3175-410a-a5a8-6242a94527de",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"6e508516-3175-410a-a5a8-6242a94527de\");' type='checkbox' >employee 06",
+        "nestedInGroup": "Detail"
+    },
+    {
+        "employeeName": "employee 07",
+        "order": 0,
+        "checked": false,
+        "id": "771a30a6-323f-49f6-a9a9-354d5253b9eb",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"771a30a6-323f-49f6-a9a9-354d5253b9eb\");' type='checkbox' >employee 07",
+        "nestedInGroup": "Prep"
+    },
+    {
+        "employeeName": "employee 08",
+        "order": 0,
+        "checked": false,
+        "id": "06f4d22b-85d6-45c2-b02b-cfb52c5ad7b1",
+        "content": "<input class='form-check-input' onclick='checkme(this,\"06f4d22b-85d6-45c2-b02b-cfb52c5ad7b1\");' type='checkbox' >employee 08",
+        "nestedInGroup": "Cash and Sale"
+    }
+]
