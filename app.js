@@ -151,8 +151,8 @@ var app = new Vue({
 
 var items = new vis.DataSet([]);
 var groups = new vis.DataSet([]);
-items.on('*', itemsOn);
-groups.on('*', groupsOn);
+// items.on('*', itemsOn);
+// groups.on('*', groupsOn);
 
 var timeline = null;
 var container = document.getElementById("TimeLine");
@@ -315,7 +315,10 @@ function closeLastItem(idSubGroup, hora, minuto) {
         item.end = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
         item.open = false;
         items.update(item);
+        persistItem(item);
+        return item.orderDb;
     }
+    return 0;
 }
 function getHora(hora) {
     if (!hora) {
@@ -340,27 +343,31 @@ function getMinuto(minuto) {
 function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open, className) {
     if (typeof hora == 'undefined') hora = getHora(hora);
     if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
-    closeLastItem(idSubGroup, hora, minuto);
+    var orderDb = closeLastItem(idSubGroup, hora, minuto);
+    var idItem = null;
     if (typeof endHour == 'undefined' && typeof endMinute == 'undefined') {
-        items.add({
+        idItem = items.add({
             group: idSubGroup,
             open: open,
             typeOfWork: typeOfWork,
             start: getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
             persist: true,
+            orderDb: orderDb+1,
             className: className
-        });
+        })[0];
     } else {
-        items.add({
+        idItem = items.add({
             group: idSubGroup,
             open: open,
             typeOfWork: typeOfWork,
             start: getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
             end: getMoment().hours(endHour).minutes(endMinute).seconds(0).milliseconds(0),
             persist: true,
+            orderDb: orderDb+1,
             className: className
-        });
+        })[0];
     }
+    persistItem(items.get(idItem));
     $('#employeeModal').modal('hide');
 }
 function startme(idSubGroup, hora, minuto, endHour, endMinute) {
@@ -392,13 +399,14 @@ function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFi
     if (!minutoInicial) minutoInicial = 0;
     if (!horaFinal) horaFinal = horaInicial + 8;
     if (!minutoFinal) minutoFinal = minutoInicial;
-    items.add({
+    var id = items.add({
         group: idSubGroup,
         start: getMoment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0),
         end: getMoment().hours(horaFinal).minutes(minutoFinal).seconds(0).milliseconds(0),
         persist: true,
+        orderDb: 0,
         type: 'background'
-    });
+    })[0];
     var group = getGroupByName(sector);
     var idGroup;
     if (group.length == 0) {
@@ -410,6 +418,9 @@ function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFi
     g.nestedGroups.push(idSubGroup);
     groups.update(g);
     timeline.setGroups(groups);
+    persistItem(groups.get(idSubGroup));
+    persistItem(items.get(id));
+    persistItem(groups.get(g.id));
     return idSubGroup;
 }
 function persist() {
@@ -486,21 +497,26 @@ function showGroupStatus() {
     }
 }
 function fillSectors() {
+    console.log('Preenchendo Setores...');
     var group = getGroupByName("Wipedown");
     if (group.length == 0) {
-        groups.add({ id: 'Wipedown', order: 0, content: 'Wipedown', nestedGroups: [] })[0];
+        var id = groups.add({ id: 'Wipedown', order: 0, content: 'Wipedown', nestedGroups: [] })[0];
+        persistItem(groups.get(id));
     }
     group = getGroupByName("Prep");
     if (group.length == 0) {
-        groups.add({ id: 'Prep', order: 1, content: 'Prep', nestedGroups: [] })[0];
+        var id = groups.add({ id: 'Prep', order: 1, content: 'Prep', nestedGroups: [] })[0];
+        persistItem(groups.get(id));
     }
     group = getGroupByName("Detail");
     if (group.length == 0) {
-        groups.add({ id: 'Detail', order: 2, content: 'Detail', nestedGroups: [] })[0];
+        var id = groups.add({ id: 'Detail', order: 2, content: 'Detail', nestedGroups: [] })[0];
+        persistItem(groups.get(id));
     }
     group = getGroupByName("Cash and Sale");
     if (group.length == 0) {
-        groups.add({ id: 'Cash and Sale', order: 3, content: 'Cash and Sale', nestedGroups: [] })[0];
+        var id = groups.add({ id: 'Cash and Sale', order: 3, content: 'Cash and Sale', nestedGroups: [] })[0];
+        persistItem(groups.get(id));
     }
     timeline.setGroups(groups);
 }
@@ -566,8 +582,11 @@ function groupsOn(event, properties, senderId) {
 
 function persistItem(item) {
     const params = new URLSearchParams();
-    params.append('date', getMoment().format("YYYYMMDD"));
-    params.append('item', JSON.stringify(item));
+    var date = getMoment().format("YYYYMMDD");
+    var jsonItem = JSON.stringify(item);
+    params.append('date', date);
+    params.append('item', jsonItem);
+    console.log('Persistindo o item da data[' + date + '] de conteudo [' + jsonItem + "] no banco de dados.");
     axios.post('/ts', params);
 }
 
@@ -575,6 +594,7 @@ function removeItem(item) {
     const params = {};
     params.date = getMoment().format("YYYYMMDD");
     params.item = JSON.stringify(item);
+    console.log('Removendo o item da data [' + params.date + '] de id [' + item.id + "] no banco de dados.");
     axios.delete('/ts?date='+params.date+'&itemId='+item.id, params);
 }
 
@@ -593,8 +613,8 @@ function load() {
                 item.end = moment(item.end);
             }
         });
-        items.off('*', itemsOn);
-        groups.off('*', groupsOn);
+        // items.off('*', itemsOn);
+        // groups.off('*', groupsOn);
         groups.clear();
         groups.add(response.data.groups);
         response.data.items.forEach(function (item) {
@@ -610,17 +630,17 @@ function load() {
         fillSectors();
         showGroupStatus();
         timeline.on('currentTimeTick', actionFired);
-        items.on('*', itemsOn);
-        groups.on('*', groupsOn);        
+        // items.on('*', itemsOn);
+        // groups.on('*', groupsOn);        
     }).catch(function (error) {
-        items.off('*', itemsOn);
-        groups.off('*', groupsOn);
+        // items.off('*', itemsOn);
+        // groups.off('*', groupsOn);
         groups.clear();
         items.clear();
         fillSectors();
         timeline.on('currentTimeTick', actionFired);
-        items.on('*', itemsOn);
-        groups.on('*', groupsOn);        
+        // items.on('*', itemsOn);
+        // groups.on('*', groupsOn);        
     });
     timeline.fit();
 }

@@ -12,6 +12,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.google.gson.Gson;
+
 import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException;
 
 public class TimeSheetServlet extends HttpServlet {
@@ -32,7 +34,7 @@ public class TimeSheetServlet extends HttpServlet {
         String date = req.getParameter("date");
         try {
             StringBuilder items = new StringBuilder("[");
-            PreparedStatement ps = conn.prepareStatement("select item from timesheet2 where date = ? and type = 'I'");
+            PreparedStatement ps = conn.prepareStatement("select item from timesheet2 where date = ? and type = 'I' order by orderDb");
             ps.setString(1, date);
             ResultSet resultSet = ps.executeQuery();
             boolean inicio = true;
@@ -45,7 +47,7 @@ public class TimeSheetServlet extends HttpServlet {
             items.append("]");
             StringBuilder groups = new StringBuilder("[");
             ps.close();
-            ps = conn.prepareStatement("select item from timesheet2 where date = ? and type = 'G'");
+            ps = conn.prepareStatement("select item from timesheet2 where date = ? and type = 'G' order by orderDb");
             ps.setString(1, date);
             resultSet = ps.executeQuery();
             inicio = true;
@@ -58,28 +60,6 @@ public class TimeSheetServlet extends HttpServlet {
             groups.append("]");
             resp.setStatus(200);
             resp.getWriter().print("{\"items\": " + items.toString() + ", \"groups\": " + groups.toString() + "}");
-        } catch (Throwable error) {
-            error.printStackTrace();
-        }
-    }
-
-    private void loadComplete(HttpServletRequest req, HttpServletResponse resp) {
-        resp.setHeader("Content-Type", "application/json");
-        Connection conn = (Connection) getServletContext().getAttribute("connection");
-        String date = req.getParameter("date");
-        try {
-            PreparedStatement ps = conn.prepareStatement("select items, groups from timesheet where date = ?");
-            ps.setString(1, date);
-            ResultSet resultSet = ps.executeQuery();
-            if (resultSet.next()) {
-                resp.setStatus(200);
-                String resultItems = resultSet.getString(1);
-                String resultGroups = resultSet.getString(2);
-                resp.getWriter().print("{\"items\": " + resultItems + ", \"groups\": " + resultGroups + "}");
-            } else {
-                resp.setStatus(404);
-                resp.getWriter().print("{\"error\": \"Data nao encontrada\"}");
-            }
         } catch (Throwable error) {
             error.printStackTrace();
         }
@@ -164,7 +144,9 @@ public class TimeSheetServlet extends HttpServlet {
     }
 
     private void saveOnlyOneItem(Connection conn, String date, String item, HttpServletResponse resp, int tentativa) {
-        String itemId = extractItemId(item);
+        Gson gson = new Gson();
+        Item itemObject = gson.fromJson(item, Item.class);
+        String itemId = itemObject.getId();
         String type = extractType(item);
         try {
             PreparedStatement ps = conn.prepareStatement("select item from timesheet2 where date = ? and itemId = ?");
@@ -188,11 +170,12 @@ public class TimeSheetServlet extends HttpServlet {
                 }
             } else {
                 ps.close();
-                ps = conn.prepareStatement("insert into timesheet2 (date, itemId, item, type) values (?,?,?,?)");
+                ps = conn.prepareStatement("insert into timesheet2 (date, itemId, orderDb, item, type) values (?,?,?,?,?)");
                 ps.setString(1, date);
                 ps.setString(2, itemId);
-                ps.setCharacterStream(3, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
-                ps.setString(4, type);
+                ps.setInt(3, itemObject.getOrderDb());
+                ps.setCharacterStream(4, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
+                ps.setString(5, type);
                 int total = ps.executeUpdate();
                 if (total > 0) {
                     resp.setStatus(200);
@@ -246,16 +229,6 @@ public class TimeSheetServlet extends HttpServlet {
     private String extractType(String item) {
         return item.contains("\"group\"") && (item.contains("\"typeOfWork\"") || item.contains("background")) ? "I"
                 : "G";
-    }
-
-    private String extractItemId(String item) {
-        String patternInicio = "\"id\"";
-        String patternFim = "\"";
-        int inicio = item.indexOf(patternInicio);
-        inicio = item.indexOf("\"", inicio + patternInicio.length()) + 1;
-        int fim = item.indexOf(patternFim, inicio);
-        String itemId = item.substring(inicio, fim);
-        return itemId;
     }
 
     @Override
