@@ -91,6 +91,7 @@ var app = new Vue({
                     item.end = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
                 }
                 items.update(item);
+                persistItem(item, 'I');
             });
             this.preencherTimeSheet(event, idSubGroup);
         },
@@ -256,6 +257,9 @@ function actionFired(properties) {
             var diffMinutes = item.end.diff(item.start, 'minutes');
             if (group.className != 'toBreak' && item.typeOfWork === 'Work' && diffMinutes >= 90) {
                 group.className = 'toBreak';
+                groups.update(group);
+            } else if (group.className === 'toBreak' && item.typeOfWork === 'Work' && diffMinutes < 90) {
+                group.className = 'p';
                 groups.update(group);
             } else if (group.className === 'toBreak' && item.typeOfWork != 'Work') {
                 group.className = 'p';
@@ -485,7 +489,6 @@ function showGroupStatus() {
     }
 }
 function fillSectors() {
-    console.log('Preenchendo Setores...');
     var group = getGroupByName("Wipedown");
     if (group.length == 0) {
         var id = groups.add({ id: 'Wipedown', order: 0, content: 'Wipedown', nestedGroups: [] })[0];
@@ -543,10 +546,18 @@ function uuidv4() {
     );
 }
 
+function updateDateItem(item) {
+    if (typeof item.start != 'undefined') {
+        item.start = moment(item.start);
+    }
+    if (typeof item.end != 'undefined') {
+        item.end = moment(item.end);
+    }        
+}
+
 var socket;
 if (window.WebSocket) {
     var url = "ws://" + location.hostname + ":" + (parseInt(location.port) + 1) + "/";
-    console.log(url);
     socket = new WebSocket(url);
     socket.onmessage = function (event) {
         var action = JSON.parse(event.data);
@@ -556,6 +567,7 @@ if (window.WebSocket) {
         if (action.action === 'PERSIST') {
             if (action.type === 'G') {
                 var g = groups.get(action.item.id);
+                updateDateItem(action.item);
                 if (g == null) {
                     groups.add(action.item);
                 } else {
@@ -563,25 +575,27 @@ if (window.WebSocket) {
                 }
             } else if (action.type === 'I') {
                 var i = items.get(action.item.id);
-                if (group == null) {
-                    i.add(action.item);
+                updateDateItem(action.item);
+                if (i == null) {
+                    items.add(action.item);
                 } else {
-                    i.update(action.item);
+                    items.update(action.item);
                 }
             }
         } else if (action.action === 'REMOVE') {
             if (action.type === 'G') {
                 var group = groups.get(action.item.id);
-                if (group == null) {
-                    groups.remove(action.item);
+                if (group != null) {
+                    groups.remove(group);
                 }
             } else if (action.type === 'I') {
                 var i = items.get(action.item.id);
-                if (i == null) {
-                    i.remove(action.item);
+                if (i != null) {
+                    items.remove(i);
                 }
             }
         }
+        timeline.fit();
     };
     socket.onopen = function (event) {
     };

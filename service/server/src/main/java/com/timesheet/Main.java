@@ -13,6 +13,8 @@ import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.servlet.ServletException;
 import org.h2.server.web.DbStarter;
@@ -63,15 +65,21 @@ public class Main {
         Undertow webSockerServer = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT) + 1, SERVICE_BIND)
                 .setHandler(path().addPrefixPath("/",
                         new WebSocketProtocolHandshakeHandler(new WebSocketConnectionCallback() {
-
+                            Set<WebSocketChannel> channels = new HashSet<WebSocketChannel>();
                             @Override
                             public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
+                                channels.add(channel);
                                 channel.getReceiveSetter().set(new AbstractReceiveListener() {
 
                                     @Override
                                     protected void onFullTextMessage(WebSocketChannel channel,
                                             BufferedTextMessage message) {
-                                        WebSockets.sendText(message.getData(), channel, null);
+                                        String originalMessage = message.getData();
+                                        for (WebSocketChannel c : channels) {
+                                            if (!c.equals(channel)) {
+                                                WebSockets.sendText(originalMessage, c, null);
+                                            }
+                                        }
                                     }
                                 });
                                 channel.resumeReceives();

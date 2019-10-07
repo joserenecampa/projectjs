@@ -4,3 +4,4 @@ timesheet.mv.db
 timesheet.trace.db
 timesheet-old.mv.db
 timesheet-copy.db
+timesheet-copy.mv.db
