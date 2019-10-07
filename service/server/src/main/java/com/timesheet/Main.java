@@ -7,6 +7,8 @@ import io.undertow.servlet.api.DeploymentInfo;
 import io.undertow.servlet.api.DeploymentManager;
 import io.undertow.servlet.api.ListenerInfo;
 import io.undertow.servlet.api.ServletInfo;
+import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
+
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -18,6 +20,13 @@ import static io.undertow.servlet.Servlets.defaultContainer;
 import static io.undertow.servlet.Servlets.deployment;
 import static io.undertow.servlet.Servlets.servlet;
 import static io.undertow.servlet.Servlets.listener;
+import io.undertow.websockets.core.AbstractReceiveListener;
+import io.undertow.websockets.core.BufferedTextMessage;
+import io.undertow.websockets.core.WebSocketChannel;
+import io.undertow.websockets.core.WebSockets;
+import io.undertow.websockets.WebSocketConnectionCallback;
+import io.undertow.websockets.spi.WebSocketHttpExchange;
+import static io.undertow.Handlers.path;
 
 public class Main {
 
@@ -30,10 +39,10 @@ public class Main {
     public static void main(String[] args) {
         initializeVariables();
         initializeDatabase();
-        initializeServerHTTP();
+        initializeServers();
     }
 
-    private static void initializeServerHTTP() {
+    private static void initializeServers() {
         ServletInfo timeSheetServlet = servlet("TimeSheetServlet", TimeSheetServlet.class).addMapping("/ts");
         ListenerInfo databaseListener = listener(DbStarter.class);
         DeploymentInfo servletBuilder = deployment().setClassLoader(Main.class.getClassLoader()).setContextPath("/")
@@ -47,9 +56,30 @@ public class Main {
             servletHandler = manager.start();
         } catch (ServletException e) {
         }
-        Undertow server = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT), SERVICE_BIND)
+        Undertow httpServer = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT), SERVICE_BIND)
                 .setHandler(servletHandler).build();
-        server.start();
+        httpServer.start();
+
+        Undertow webSockerServer = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT) + 1, SERVICE_BIND)
+                .setHandler(path().addPrefixPath("/",
+                        new WebSocketProtocolHandshakeHandler(new WebSocketConnectionCallback() {
+
+                            @Override
+                            public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
+                                channel.getReceiveSetter().set(new AbstractReceiveListener() {
+
+                                    @Override
+                                    protected void onFullTextMessage(WebSocketChannel channel,
+                                            BufferedTextMessage message) {
+                                        WebSockets.sendText(message.getData(), channel, null);
+                                    }
+                                });
+                                channel.resumeReceives();
+                            }
+                        })))
+                .build();
+        webSockerServer.start();
+
     }
 
     private static void initializeDatabase() {

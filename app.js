@@ -1,3 +1,4 @@
+var IDENTIFIER = uuidv4();
 var timeSheetDayOffset = 0;
 var modalIdGroup = '';
 var app = new Vue({
@@ -97,6 +98,7 @@ var app = new Vue({
             this.items.forEach(function (i) {
                 if (i.selecionado) {
                     items.remove(i.id);
+                    removeItem(i, 'I');
                 }
             });
             this.items = this.items.filter(function (v) { return !v.selecionado; });
@@ -123,6 +125,9 @@ var app = new Vue({
                 groups.update(moverTo);
                 gr.checked = false;
                 checkme(gr, gr.id);
+                persistItem(parentGroup, 'G');
+                persistItem(gr, 'G');
+                persistItem(moverTo, 'G');
             });
         },
         apagarSelecionados: function (event) {
@@ -135,6 +140,7 @@ var app = new Vue({
                 items.forEach(function (item) {
                     if (item.group === gr.id) {
                         items.remove(item);
+                        removeItem(item, 'I');
                     }
                 });
                 var parentGroup = groups.get(gr.nestedInGroup);
@@ -143,6 +149,8 @@ var app = new Vue({
                 }
                 groups.update(parentGroup);
                 groups.remove(gr.id);
+                persistItem(parentGroup, 'G');
+                removeItem(gr, 'G');
             });
         }
     }
@@ -315,7 +323,7 @@ function closeLastItem(idSubGroup, hora, minuto) {
         item.end = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
         item.open = false;
         items.update(item);
-        persistItem(item);
+        persistItem(item, 'I');
         return item.orderDb;
     }
     return 0;
@@ -352,7 +360,7 @@ function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open,
             typeOfWork: typeOfWork,
             start: getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
             persist: true,
-            orderDb: orderDb+1,
+            orderDb: orderDb + 1,
             className: className
         })[0];
     } else {
@@ -363,11 +371,11 @@ function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open,
             start: getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0),
             end: getMoment().hours(endHour).minutes(endMinute).seconds(0).milliseconds(0),
             persist: true,
-            orderDb: orderDb+1,
+            orderDb: orderDb + 1,
             className: className
         })[0];
     }
-    persistItem(items.get(idItem));
+    persistItem(items.get(idItem), 'I');
     $('#employeeModal').modal('hide');
 }
 function startme(idSubGroup, hora, minuto, endHour, endMinute) {
@@ -418,32 +426,12 @@ function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFi
     g.nestedGroups.push(idSubGroup);
     groups.update(g);
     timeline.setGroups(groups);
-    persistItem(groups.get(idSubGroup));
-    persistItem(items.get(id));
-    persistItem(groups.get(g.id));
+    persistItem(groups.get(idSubGroup), 'G');
+    persistItem(items.get(id), 'I');
+    persistItem(groups.get(g.id), 'G');
     return idSubGroup;
 }
-function persist() {
-    timeline.off('currentTimeTick');
-    const params = new URLSearchParams();
-    params.append('date', getMoment().format("YYYYMMDD"));
-    params.append('items', JSON.stringify(items.get({
-        filter: function (item) {
-            return (typeof item.persist === 'undefined') || (item.persist != null && item.persist);
-        }
-    })));
-    params.append('groups', JSON.stringify(groups.get({
-        filter: function (group) {
-            return (typeof group.persist === 'undefined') || (group.persist != null && group.persist);
-        }
-    })));
-    axios.post('/ts', params)
-        .then(function (response) {
-            timeline.on('currentTimeTick', actionFired);
-        }).catch(function (error) {
-            timeline.on('currentTimeTick', actionFired);
-        });
-}
+
 function showGroupStatus() {
     var hoje = moment().format("YYYYMMDD");
     var diaTimeline = getMoment().format("YYYYMMDD");
@@ -501,101 +489,116 @@ function fillSectors() {
     var group = getGroupByName("Wipedown");
     if (group.length == 0) {
         var id = groups.add({ id: 'Wipedown', order: 0, content: 'Wipedown', nestedGroups: [] })[0];
-        persistItem(groups.get(id));
+        persistItem(groups.get(id), 'G');
     }
     group = getGroupByName("Prep");
     if (group.length == 0) {
         var id = groups.add({ id: 'Prep', order: 1, content: 'Prep', nestedGroups: [] })[0];
-        persistItem(groups.get(id));
+        persistItem(groups.get(id), 'G');
     }
     group = getGroupByName("Detail");
     if (group.length == 0) {
         var id = groups.add({ id: 'Detail', order: 2, content: 'Detail', nestedGroups: [] })[0];
-        persistItem(groups.get(id));
+        persistItem(groups.get(id), 'G');
     }
     group = getGroupByName("Cash and Sale");
     if (group.length == 0) {
         var id = groups.add({ id: 'Cash and Sale', order: 3, content: 'Cash and Sale', nestedGroups: [] })[0];
-        persistItem(groups.get(id));
+        persistItem(groups.get(id), 'G');
     }
     timeline.setGroups(groups);
 }
 
-function itemsOn(event, properties, senderId) {
-    if (event === 'add' && typeof properties.items != 'undefined') {
-        properties.items.forEach(function (item) {
-            var i = items.get(item);
-            if (typeof i.persist != 'undefined' && i.persist) {
-                persistItem(i);
-            }
-        });
-    }
-    if (typeof properties != 'undefined' && typeof properties.data != 'undefined') {
-        for (i = 0; i < properties.data.length; i++) {
-            var itemNew = properties.data[i];
-            var itemOld = properties.oldData[i];
-            if (itemNew.id === itemOld.id) {
-                if (typeof itemNew.persist != 'undefined' && itemNew.persist) {
-                    if (!itemNew.open) {
-                        if (itemNew.typeOfWork != itemOld.typeOfWork || itemNew.start.diff(itemOld.start) != 0 || itemNew.end.diff(itemOld.end) != 0) {
-                            persistItem(itemNew);
-                        }
-                    } else if (itemNew.start.diff(itemOld.start) != 0) {
-                        persistItem(itemNew);
-                    }
-                }
-            }
-        }
-    }
-    if (event === 'remove') {
-        if (typeof properties.items != 'undefined' && properties.items.length > 0) {
-            console.log("ITEM: REMOVER ", properties);
-            removeItem(properties.oldData[0]);
-        }
-    }
-}
-
-function groupsOn(event, properties, senderId) {
-    if (event === 'add' && typeof properties.items != 'undefined') {
-        properties.items.forEach(function (item) {
-            persistItem(groups.get(item));
-        });
-    }
-    if (typeof properties != 'undefined' && typeof properties.data != 'undefined') {
-        for (i = 0; i < properties.data.length; i++) {
-            var itemNew = properties.data[i];
-            var itemOld = properties.oldData[i];
-            if (itemNew.id === itemOld.id) {
-                persistItem(itemNew);
-            }
-        }
-    }
-    if (event === 'remove') {
-        if (typeof properties.items != 'undefined' && properties.items.length > 0) {
-            for (i = 0; i < properties.oldData.length; i++) {
-                console.log("GRUPO: REMOVER ", properties);
-                removeItem(properties.oldData[i]);
-            }
-        }
-    }
-}
-
-function persistItem(item) {
+function persistItem(item, type) {
     const params = new URLSearchParams();
     var date = getMoment().format("YYYYMMDD");
     var jsonItem = JSON.stringify(item);
     params.append('date', date);
     params.append('item', jsonItem);
-    console.log('Persistindo o item da data[' + date + '] de conteudo [' + jsonItem + "] no banco de dados.");
     axios.post('/ts', params);
+    var message = {};
+    message.action = 'PERSIST';
+    message.type = type;
+    message.item = item;
+    message.from = IDENTIFIER;
+    send(JSON.stringify(message));
 }
 
-function removeItem(item) {
+function removeItem(item, type) {
     const params = {};
     params.date = getMoment().format("YYYYMMDD");
     params.item = JSON.stringify(item);
-    console.log('Removendo o item da data [' + params.date + '] de id [' + item.id + "] no banco de dados.");
-    axios.delete('/ts?date='+params.date+'&itemId='+item.id, params);
+    axios.delete('/ts?date=' + params.date + '&itemId=' + item.id, params);
+    var message = {};
+    message.action = 'REMOVE';
+    message.type = type;
+    message.item = item;
+    message.from = IDENTIFIER;
+    send(JSON.stringify(message));
+}
+
+function uuidv4() {
+    return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}
+
+var socket;
+if (window.WebSocket) {
+    var url = "ws://" + location.hostname + ":" + (parseInt(location.port) + 1) + "/";
+    console.log(url);
+    socket = new WebSocket(url);
+    socket.onmessage = function (event) {
+        var action = JSON.parse(event.data);
+        if (action.from === IDENTIFIER) {
+            return;
+        }
+        if (action.action === 'PERSIST') {
+            if (action.type === 'G') {
+                var g = groups.get(action.item.id);
+                if (g == null) {
+                    groups.add(action.item);
+                } else {
+                    groups.update(action.item);
+                }
+            } else if (action.type === 'I') {
+                var i = items.get(action.item.id);
+                if (group == null) {
+                    i.add(action.item);
+                } else {
+                    i.update(action.item);
+                }
+            }
+        } else if (action.action === 'REMOVE') {
+            if (action.type === 'G') {
+                var group = groups.get(action.item.id);
+                if (group == null) {
+                    groups.remove(action.item);
+                }
+            } else if (action.type === 'I') {
+                var i = items.get(action.item.id);
+                if (i == null) {
+                    i.remove(action.item);
+                }
+            }
+        }
+    };
+    socket.onopen = function (event) {
+    };
+    socket.onclose = function (event) {
+    };
+} else {
+    console.log("Your browser does not support Websockets. (Use Chrome)");
+}
+function send(message) {
+    if (!window.WebSocket) {
+        return;
+    }
+    if (socket.readyState == WebSocket.OPEN) {
+        socket.send(message);
+    } else {
+        console.log("The socket is not open.");
+    }
 }
 
 function load() {
@@ -613,8 +616,6 @@ function load() {
                 item.end = moment(item.end);
             }
         });
-        // items.off('*', itemsOn);
-        // groups.off('*', groupsOn);
         groups.clear();
         groups.add(response.data.groups);
         response.data.items.forEach(function (item) {
@@ -630,17 +631,11 @@ function load() {
         fillSectors();
         showGroupStatus();
         timeline.on('currentTimeTick', actionFired);
-        // items.on('*', itemsOn);
-        // groups.on('*', groupsOn);        
     }).catch(function (error) {
-        // items.off('*', itemsOn);
-        // groups.off('*', groupsOn);
         groups.clear();
         items.clear();
         fillSectors();
         timeline.on('currentTimeTick', actionFired);
-        // items.on('*', itemsOn);
-        // groups.on('*', groupsOn);        
     });
     timeline.fit();
 }
