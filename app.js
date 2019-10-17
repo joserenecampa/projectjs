@@ -404,6 +404,9 @@ function homeme(idSubGroup, hora, minuto, endHour, endMinute) {
     addItem(idSubGroup, hora, minuto, undefined, undefined, 'Home', false, undefined);
 }
 function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
+    if (typeof name === 'undefined' || name == null || name.length <= 0) {
+        return;
+    }
     var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false })[0];
     var c = montarNome(idSubGroup, name, false);
     groups.update({ id: idSubGroup, content: c });
@@ -557,7 +560,7 @@ function updateDateItem(item) {
 
 var socket;
 if (window.WebSocket) {
-    var url = "ws://" + location.hostname + ":" + (parseInt(location.port) + 1) + "/";
+    var url = "wss://" + location.hostname + ":444/";
     socket = new WebSocket(url);
     socket.onmessage = function (event) {
         var action = JSON.parse(event.data);

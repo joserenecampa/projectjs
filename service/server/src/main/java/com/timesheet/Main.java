@@ -1,5 +1,37 @@
 package com.timesheet;
 
+import static io.undertow.Handlers.path;
+import static io.undertow.servlet.Servlets.defaultContainer;
+import static io.undertow.servlet.Servlets.deployment;
+import static io.undertow.servlet.Servlets.listener;
+import static io.undertow.servlet.Servlets.servlet;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import javax.servlet.ServletException;
+
+import org.h2.server.web.DbStarter;
+
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.resource.PathResourceManager;
@@ -7,28 +39,13 @@ import io.undertow.servlet.api.DeploymentInfo;
 import io.undertow.servlet.api.DeploymentManager;
 import io.undertow.servlet.api.ListenerInfo;
 import io.undertow.servlet.api.ServletInfo;
+import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
-
-import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.servlet.ServletException;
-import org.h2.server.web.DbStarter;
-import static io.undertow.servlet.Servlets.defaultContainer;
-import static io.undertow.servlet.Servlets.deployment;
-import static io.undertow.servlet.Servlets.servlet;
-import static io.undertow.servlet.Servlets.listener;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
-import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
-import static io.undertow.Handlers.path;
 
 public class Main {
 
@@ -37,20 +54,23 @@ public class Main {
     private static String DB_PASS = null;
     private static String SERVICE_PORT = null;
     private static String SERVICE_BIND = null;
+    private static String ROOT_PATH = ".";
+    private static String KEYSTORE_PATH = null;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Throwable {
         initializeVariables();
         initializeDatabase();
         initializeServers();
     }
 
-    private static void initializeServers() {
+    private static void initializeServers() throws Throwable  {
         ServletInfo timeSheetServlet = servlet("TimeSheetServlet", TimeSheetServlet.class).addMapping("/ts");
         ListenerInfo databaseListener = listener(DbStarter.class);
         DeploymentInfo servletBuilder = deployment().setClassLoader(Main.class.getClassLoader()).setContextPath("/")
-                .setDeploymentName("timesheet.war").setResourceManager(new PathResourceManager(Paths.get("."), 100))
+                .setDeploymentName("timesheet.war").setResourceManager(new PathResourceManager(Paths.get(Main.ROOT_PATH), 100))
                 .addListener(databaseListener).addInitParameter("db.url", DB_URL).addInitParameter("db.user", DB_USER)
-                .addInitParameter("db.password", DB_PASS).addServlets(timeSheetServlet);
+                .addInitParameter("db.password", DB_PASS).addWelcomePage("index.html")
+                .addServlets(timeSheetServlet);
         DeploymentManager manager = defaultContainer().addDeployment(servletBuilder);
         manager.deploy();
         HttpHandler servletHandler = null;
@@ -58,11 +78,13 @@ public class Main {
             servletHandler = manager.start();
         } catch (ServletException e) {
         }
-        Undertow httpServer = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT), SERVICE_BIND)
+        int port = Integer.parseInt(SERVICE_PORT);
+        String host = SERVICE_BIND;
+        Undertow httpServer = Undertow.builder().addHttpsListener(port, host, Main.getSSLContext())
                 .setHandler(servletHandler).build();
         httpServer.start();
 
-        Undertow webSockerServer = Undertow.builder().addHttpListener(Integer.parseInt(SERVICE_PORT) + 1, SERVICE_BIND)
+        Undertow webSockerServer = Undertow.builder().addHttpsListener(Integer.parseInt(SERVICE_PORT) + 1, SERVICE_BIND, Main.getSSLContext())
                 .setHandler(path().addPrefixPath("/",
                         new WebSocketProtocolHandshakeHandler(new WebSocketConnectionCallback() {
                             Set<WebSocketChannel> channels = new HashSet<WebSocketChannel>();
@@ -136,12 +158,53 @@ public class Main {
         return result;
     }
 
+	private static SSLContext getSSLContext() throws Throwable {
+		SSLContext sslContext = SSLContext.getDefault();
+		sslContext = SSLContext.getInstance("TLSv1.2");
+		String defaultAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
+
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(defaultAlgorithm);
+        
+        KeyStore localKeyStore = KeyStore.getInstance("JKS");
+
+        InputStream is = new FileInputStream(new File(Main.KEYSTORE_PATH));
+        localKeyStore.load(is, "".toCharArray());
+
+		keyManagerFactory.init(localKeyStore, "".toCharArray());
+
+		KeyManager[] km = keyManagerFactory.getKeyManagers();
+
+		TrustManager[] tm = new TrustManager[] { new X509TrustManager() {
+			public X509Certificate[] getAcceptedIssuers() {
+				return null;
+			}
+
+			public void checkClientTrusted(X509Certificate[] c, String a) throws CertificateException {
+			}
+
+			public void checkServerTrusted(X509Certificate[] c, String a) throws CertificateException {
+			}
+		} };
+		SecureRandom sr = new SecureRandom();
+		sslContext.init(km, tm, sr);
+		HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+			public boolean verify(String h, SSLSession s) {
+				return true;
+			}
+		});
+
+		return sslContext;
+	}
+
+
     private static void initializeVariables() {
         Main.DB_URL = initializeVariables("DB_URL");
         Main.DB_USER = initializeVariables("DB_USER");
         Main.DB_PASS = initializeVariables("DB_PASS");
         Main.SERVICE_PORT = initializeVariables("SERVICE_PORT");
         Main.SERVICE_BIND = initializeVariables("SERVICE_BIND");
+        Main.ROOT_PATH = initializeVariables("ROOT_PATH");
+        Main.KEYSTORE_PATH = initializeVariables("KEYSTORE_PATH");
     }
 
 }
