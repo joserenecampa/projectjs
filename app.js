@@ -13,6 +13,7 @@ var app = new Vue({
             entrada: 0
         },
         employeeName: '',
+        employeeNote: '',
         items: []
     },
     methods: {
@@ -30,6 +31,7 @@ var app = new Vue({
             var subGroup = groups.get(idSubGroup);
             if (subGroup) {
                 this.employeeName = subGroup.employeeName;
+                //this.employeeNote = 'Jjfksjdl jsldkfjsldkfj slkdj lsdkfjsldkjf lskdjf lsjf lksdjflsd\nJidjsidjso ajsodijasoi djaosi djaosjid aosijdaosijd oaisjd oaijsd oj\njsdasAHSdah as ahdkjshdka jsh dkajhs dkajhd';
                 var resultItems = [];
                 var total = 0;
                 items.forEach(function (i) {
@@ -287,6 +289,10 @@ function getLastOpenItemBySubGroup(groupId) {
         return null;
     }
 }
+function getShiftTotalTime(groupId) {
+    var itemShift = getScheduler(groupId);
+    return itemShift.end.diff(itemShift.start, 'hours');
+}
 function getScheduler(groupId) {
     var results = items.get({
         filter: function (item) {
@@ -398,10 +404,27 @@ function startme(idSubGroup, hora, minuto, endHour, endMinute) {
     addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Work', true, 'green');
 }
 function breakme(idSubGroup, hora, minuto, endHour, endMinute) {
-    addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Break', true, 'red');
+    var shift = getShiftTotalTime(idSubGroup);
+    var valid = true;
+    if (shift < 4) {
+        valid = confirm("This shift is less than 4 hour. Confirm break?");
+    }
+    if (shift >= 4 || shift < 5) {
+        valid = confirm("Shift between 4 and 5 hours only lunch is available. Confirm break?");
+    }
+    if (valid) {
+        addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Break', true, 'red');
+    }
 }
 function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
-    addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
+    var shift = getShiftTotalTime(idSubGroup);
+    var valid = true;
+    if (shift < 5) {
+        valid = confirm("This shift is less than 4 hour. Confirm?");
+    }
+    if (valid) {
+        addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
+    }
 }
 function pushback(idSubGroup, hora, minuto, endHour, endMinute) {
     var scheduler = getScheduler(idSubGroup);
