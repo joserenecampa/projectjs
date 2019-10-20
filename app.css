@@ -13,8 +13,16 @@
     border-color: red;
 }
 
-.vis-nested-group.toBreak {
+.vis-nested-group.toBreak90 {
     background-color: lightgreen;
+}
+
+.vis-nested-group.toBreak120 {
+    background-color: lightyellow;
+}
+
+.vis-nested-group.toBreak150 {
+    background-color: lightcoral;
 }
 
 .vis-item.blue {

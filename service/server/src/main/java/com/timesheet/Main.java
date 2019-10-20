@@ -11,13 +11,17 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.security.KeyStore;
+import java.security.Principal;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import javax.net.ssl.HostnameVerifier;
@@ -33,6 +37,17 @@ import javax.servlet.ServletException;
 import org.h2.server.web.DbStarter;
 
 import io.undertow.Undertow;
+import io.undertow.security.api.AuthenticationMechanism;
+import io.undertow.security.api.AuthenticationMode;
+import io.undertow.security.handlers.AuthenticationCallHandler;
+import io.undertow.security.handlers.AuthenticationConstraintHandler;
+import io.undertow.security.handlers.AuthenticationMechanismsHandler;
+import io.undertow.security.handlers.SecurityInitialHandler;
+import io.undertow.security.idm.Account;
+import io.undertow.security.idm.Credential;
+import io.undertow.security.idm.IdentityManager;
+import io.undertow.security.idm.PasswordCredential;
+import io.undertow.security.impl.BasicAuthenticationMechanism;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.resource.PathResourceManager;
 import io.undertow.servlet.api.DeploymentInfo;
@@ -63,14 +78,14 @@ public class Main {
         initializeServers();
     }
 
-    private static void initializeServers() throws Throwable  {
+    private static void initializeServers() throws Throwable {
         ServletInfo timeSheetServlet = servlet("TimeSheetServlet", TimeSheetServlet.class).addMapping("/ts");
         ListenerInfo databaseListener = listener(DbStarter.class);
         DeploymentInfo servletBuilder = deployment().setClassLoader(Main.class.getClassLoader()).setContextPath("/")
-                .setDeploymentName("timesheet.war").setResourceManager(new PathResourceManager(Paths.get(Main.ROOT_PATH), 100))
+                .setDeploymentName("timesheet.war")
+                .setResourceManager(new PathResourceManager(Paths.get(Main.ROOT_PATH), 100))
                 .addListener(databaseListener).addInitParameter("db.url", DB_URL).addInitParameter("db.user", DB_USER)
-                .addInitParameter("db.password", DB_PASS).addWelcomePage("index.html")
-                .addServlets(timeSheetServlet);
+                .addInitParameter("db.password", DB_PASS).addWelcomePage("index.html").addServlets(timeSheetServlet);
         DeploymentManager manager = defaultContainer().addDeployment(servletBuilder);
         manager.deploy();
         HttpHandler servletHandler = null;
@@ -78,16 +93,58 @@ public class Main {
             servletHandler = manager.start();
         } catch (ServletException e) {
         }
+
+        IdentityManager identityManager = new IdentityManager() {
+            public Account verify(String id, Credential credential) {
+                if ("tsbro-admin".equals(id)) {
+                    if (credential instanceof PasswordCredential) {
+                        char[] password = ((PasswordCredential) credential).getPassword();
+                        char[] expectedPassword = "tsbro-admin".toCharArray();
+                        if (Arrays.equals(password, expectedPassword)) {
+                            return new Account() {
+                                HashSet<String> roles = new HashSet<String>(1);
+                                public Set<String> getRoles() {
+                                    if (roles.isEmpty()) {
+                                        roles.add("admin");
+                                    }
+                                    return roles;
+                                }
+                                public Principal getPrincipal() {
+                                    return new Principal() {
+                                        public String getName() {
+                                            return "tsbro-admin";
+                                        }
+                                    };
+                                }
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+            public Account verify(Credential credential) {
+                return null;
+            }
+            public Account verify(Account account) {
+                return account;
+            }
+        };
+
+        HttpHandler securityHandler = servletHandler;
+        securityHandler = new AuthenticationCallHandler(securityHandler);
+        securityHandler = new AuthenticationConstraintHandler(securityHandler);
+        final List<AuthenticationMechanism> mechanisms = Collections
+                .<AuthenticationMechanism>singletonList(new BasicAuthenticationMechanism("TimeSheet Brothers' System"));
+        securityHandler = new AuthenticationMechanismsHandler(securityHandler, mechanisms);
+        securityHandler = new SecurityInitialHandler(AuthenticationMode.PRO_ACTIVE, identityManager, securityHandler);
+
         int port = Integer.parseInt(SERVICE_PORT);
         String host = SERVICE_BIND;
         Undertow httpServer = Undertow.builder().addHttpsListener(port, host, Main.getSSLContext())
-                .setHandler(servletHandler).build();
-        httpServer.start();
-
-        Undertow webSockerServer = Undertow.builder().addHttpsListener(Integer.parseInt(SERVICE_PORT) + 1, SERVICE_BIND, Main.getSSLContext())
-                .setHandler(path().addPrefixPath("/",
+                .setHandler(path().addPrefixPath("/", servletHandler).addPrefixPath("/ws",
                         new WebSocketProtocolHandshakeHandler(new WebSocketConnectionCallback() {
                             Set<WebSocketChannel> channels = new HashSet<WebSocketChannel>();
+
                             @Override
                             public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
                                 channels.add(channel);
@@ -108,8 +165,7 @@ public class Main {
                             }
                         })))
                 .build();
-        webSockerServer.start();
-
+        httpServer.start();
     }
 
     private static void initializeDatabase() {
@@ -158,44 +214,43 @@ public class Main {
         return result;
     }
 
-	private static SSLContext getSSLContext() throws Throwable {
-		SSLContext sslContext = SSLContext.getDefault();
-		sslContext = SSLContext.getInstance("TLSv1.2");
-		String defaultAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
+    private static SSLContext getSSLContext() throws Throwable {
+        SSLContext sslContext = SSLContext.getDefault();
+        sslContext = SSLContext.getInstance("TLSv1.2");
+        String defaultAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(defaultAlgorithm);
-        
+
         KeyStore localKeyStore = KeyStore.getInstance("JKS");
 
         InputStream is = new FileInputStream(new File(Main.KEYSTORE_PATH));
         localKeyStore.load(is, "".toCharArray());
 
-		keyManagerFactory.init(localKeyStore, "".toCharArray());
+        keyManagerFactory.init(localKeyStore, "".toCharArray());
 
-		KeyManager[] km = keyManagerFactory.getKeyManagers();
+        KeyManager[] km = keyManagerFactory.getKeyManagers();
 
-		TrustManager[] tm = new TrustManager[] { new X509TrustManager() {
-			public X509Certificate[] getAcceptedIssuers() {
-				return null;
-			}
+        TrustManager[] tm = new TrustManager[] { new X509TrustManager() {
+            public X509Certificate[] getAcceptedIssuers() {
+                return null;
+            }
 
-			public void checkClientTrusted(X509Certificate[] c, String a) throws CertificateException {
-			}
+            public void checkClientTrusted(X509Certificate[] c, String a) throws CertificateException {
+            }
 
-			public void checkServerTrusted(X509Certificate[] c, String a) throws CertificateException {
-			}
-		} };
-		SecureRandom sr = new SecureRandom();
-		sslContext.init(km, tm, sr);
-		HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
-			public boolean verify(String h, SSLSession s) {
-				return true;
-			}
-		});
+            public void checkServerTrusted(X509Certificate[] c, String a) throws CertificateException {
+            }
+        } };
+        SecureRandom sr = new SecureRandom();
+        sslContext.init(km, tm, sr);
+        HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+            public boolean verify(String h, SSLSession s) {
+                return true;
+            }
+        });
 
-		return sslContext;
-	}
-
+        return sslContext;
+    }
 
     private static void initializeVariables() {
         Main.DB_URL = initializeVariables("DB_URL");

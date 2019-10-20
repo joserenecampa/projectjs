@@ -98,6 +98,7 @@ var app = new Vue({
         removerSheets: function (idSubGroup, event) {
             this.items.forEach(function (i) {
                 if (i.selecionado) {
+                    removerAvisoVisual(idSubGroup);
                     items.remove(i.id);
                     removeItem(i, 'I');
                 }
@@ -160,8 +161,6 @@ var app = new Vue({
 
 var items = new vis.DataSet([]);
 var groups = new vis.DataSet([]);
-// items.on('*', itemsOn);
-// groups.on('*', groupsOn);
 
 var timeline = null;
 var container = document.getElementById("TimeLine");
@@ -255,13 +254,19 @@ function actionFired(properties) {
             item.end = getMoment();
             group = getGroupById(item.group);
             var diffMinutes = item.end.diff(item.start, 'minutes');
-            if (group.className != 'toBreak' && item.typeOfWork === 'Work' && diffMinutes >= 90) {
-                group.className = 'toBreak';
+            if (group.className != 'toBreak90' && item.typeOfWork === 'Work' && diffMinutes >= 90 && diffMinutes < 120) {
+                group.className = 'toBreak90';
                 groups.update(group);
-            } else if (group.className === 'toBreak' && item.typeOfWork === 'Work' && diffMinutes < 90) {
+            } else if (group.className != 'toBreak120' && item.typeOfWork === 'Work' && diffMinutes >= 120 && diffMinutes < 150) {
+                group.className = 'toBreak120';
+                groups.update(group);
+            } else if (group.className != 'toBreak150' && item.typeOfWork === 'Work' && diffMinutes >= 150) {
+                group.className = 'toBreak150';
+                groups.update(group);
+            } else if (group.className != 'p' && item.typeOfWork === 'Work' && diffMinutes < 90) {
                 group.className = 'p';
                 groups.update(group);
-            } else if (group.className === 'toBreak' && item.typeOfWork != 'Work') {
+            } else if (group.className === 'p' && item.typeOfWork != 'Work') {
                 group.className = 'p';
                 groups.update(group);
             }
@@ -319,9 +324,16 @@ function checkme(component, idSubGroup) {
     var c = montarNome(subGrupo.id, subGrupo.employeeName, component.checked);
     groups.update({ id: idSubGroup, content: c, checked: !subGrupo.checked });
 }
+function removerAvisoVisual(idSubGroup) {
+    var g = groups.get(idSubGroup);
+    g.className = 'p';
+    groups.update(g);
+    persistItem(g, 'G');
+}
 function closeLastItem(idSubGroup, hora, minuto) {
     if (typeof hora == 'undefined') hora = getHora(hora);
     if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
+    removerAvisoVisual(idSubGroup);
     var item = getLastOpenItemBySubGroup(idSubGroup);
     if (item) {
         item.end = getMoment().hours(hora).minutes(minuto).seconds(0).milliseconds(0);
@@ -407,7 +419,7 @@ function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFi
     if (typeof name === 'undefined' || name == null || name.length <= 0) {
         return;
     }
-    var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false })[0];
+    var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false, className: 'p' })[0];
     var c = montarNome(idSubGroup, name, false);
     groups.update({ id: idSubGroup, content: c });
     if (!horaInicial) horaInicial = 9;
@@ -560,7 +572,7 @@ function updateDateItem(item) {
 
 var socket;
 if (window.WebSocket) {
-    var url = "wss://" + location.hostname + ":444/";
+    var url = "wss://" + location.hostname + "/ws";
     socket = new WebSocket(url);
     socket.onmessage = function (event) {
         var action = JSON.parse(event.data);

@@ -13,7 +13,7 @@
             "request": "launch",
             "mainClass": "com.timesheet.Main",
             "projectName": "server",
-            "vmArgs": "-DXms512m -DXmx512m -DKEYSTORE_PATH=./arquivos/certs/keystore.jks -DROOT_PATH=. -DDB_URL=jdbc:h2:./timesheet -DDB_USER=sa -DDB_PASS=sa -DSERVICE_PORT=8000 -DSERVICE_BIND=localhost"
+            "vmArgs": "-DXms512m -DXmx512m -DKEYSTORE_PATH=./arquivos/certs/keystore.jks -DROOT_PATH=. -DDB_URL=jdbc:h2:./timesheet -DDB_USER=sa -DDB_PASS=sa -DSERVICE_PORT=443 -DSERVICE_BIND=localhost"
         }
     ]
 }
