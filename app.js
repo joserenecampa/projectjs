@@ -6,7 +6,7 @@ var app = new Vue({
     data: {
         form: {
             nome: '',
-            grupo: '',
+            grupo: 'Wipedown',
             moverPara: '',
             hora: '',
             minuto: '',
@@ -31,7 +31,6 @@ var app = new Vue({
             var subGroup = groups.get(idSubGroup);
             if (subGroup) {
                 this.employeeName = subGroup.employeeName;
-                //this.employeeNote = 'Jjfksjdl jsldkfjsldkfj slkdj lsdkfjsldkjf lskdjf lsjf lksdjflsd\nJidjsidjso ajsodijasoi djaosi djaosjid aosijdaosijd oaisjd oaijsd oj\njsdasAHSdah as ahdkjshdka jsh dkajhs dkajhd';
                 var resultItems = [];
                 var total = 0;
                 items.forEach(function (i) {
@@ -238,6 +237,8 @@ function showModal(properties) {
         var group = groups.get(properties.group);
         if (group && group.employeeName) {
             modalIdGroup = group.id;
+            var objectCanBreak = canBreak(modalIdGroup);
+            //app.employeeNote = objectCanBreak.note;
             app.preencherTimeSheet(null, modalIdGroup);
             $('#employeeModal').modal('show');
         }
@@ -255,14 +256,16 @@ function actionFired(properties) {
         if (hoje === dia) {
             item.end = getMoment();
             group = getGroupById(item.group);
+            var objectCanBreak = canBreak(group.id);
+            var cb = (objectCanBreak.canBreak || objectCanBreak.canLunch);
             var diffMinutes = item.end.diff(item.start, 'minutes');
-            if (group.className != 'toBreak90' && item.typeOfWork === 'Work' && diffMinutes >= 90 && diffMinutes < 120) {
+            if (cb && group.className != 'toBreak90' && item.typeOfWork === 'Work' && diffMinutes >= 90 && diffMinutes < 120) {
                 group.className = 'toBreak90';
                 groups.update(group);
-            } else if (group.className != 'toBreak120' && item.typeOfWork === 'Work' && diffMinutes >= 120 && diffMinutes < 150) {
+            } else if (cb && group.className != 'toBreak120' && item.typeOfWork === 'Work' && diffMinutes >= 120 && diffMinutes < 150) {
                 group.className = 'toBreak120';
                 groups.update(group);
-            } else if (group.className != 'toBreak150' && item.typeOfWork === 'Work' && diffMinutes >= 150) {
+            } else if (cb && group.className != 'toBreak150' && item.typeOfWork === 'Work' && diffMinutes >= 150) {
                 group.className = 'toBreak150';
                 groups.update(group);
             } else if (group.className != 'p' && item.typeOfWork === 'Work' && diffMinutes < 90) {
@@ -289,9 +292,78 @@ function getLastOpenItemBySubGroup(groupId) {
         return null;
     }
 }
-function getShiftTotalTime(groupId) {
+function canBreak(groupId) {
+    var result = {};
+    result.canBreak = false;
+    result.canLunch = false;
+    result.note = "";
+    var itemShift = getShiftTotalTime(groupId, 'minutes');
+    var totalBreak = 0;
+    var totalLunch = 0;
+    var totalTimeBreak = 0;
+    var totalTimeWork = 0;
+    if (itemShift >= 240) {
+        items.forEach(function (item) {
+            if (item.group === groupId) {
+                if (item.typeOfWork === 'Break' || item.typeOfWork === 'Lunch') {
+                    if (item.typeOfWork === 'Break') {
+                        totalBreak = totalBreak + 1;
+                        if (typeof item.end != 'undefined' && item.end != null) {
+                            totalTimeBreak = totalTimeBreak + (item.end.diff(item.start, 'minutes'));
+                        }
+                    } else if (item.typeOfWork === 'Lunch') {
+                        totalLunch = totalLunch + 1;
+                    }
+                } else if (item.typeOfWork === 'Work') {
+                    if (typeof item.end != 'undefined' && item.end != null) {
+                        totalTimeWork = totalTimeWork + (item.end.diff(item.start, 'minutes'));
+                    }
+                }
+            }
+        });
+        if (totalTimeWork > 0 && itemShift >= 240 && itemShift < 300) { // 10 minute break for a 4 hour shift
+            result.canBreak = totalBreak < 1 && totalTimeBreak < 10;
+            result.canLunch = false;
+        } else if (totalTimeWork > 0 && itemShift >= 300 && itemShift < 360) { // 30 minute break for a 5 hour shift
+            result.canBreak = false;
+            result.canLunch = totalLunch < 1 && totalTimeBreak < 30;
+        } else if (totalTimeWork > 0 && itemShift >= 360 && itemShift < 480) { // 30 minutes break and a 10 minute break for a 6 hour shift
+            result.canBreak = totalBreak < 1 && totalTimeBreak < 10;
+            result.canLunch = totalLunch < 1 && totalTimeBreak < 30;
+        } else if (totalTimeWork > 0 && itemShift >= 480 && itemShift < 600) { // 30 minutes break and (2) 10 minute break for an 8 hour shift
+            result.canBreak = totalBreak < 2 && totalTimeBreak < 20;
+            result.canLunch = totalLunch < 1 && totalTimeBreak < 30;
+        } else if (totalTimeWork > 0 && itemShift >= 600) { // 30 minutes break and (3) 10 minute break for an 8 hour shift
+            result.canBreak = totalBreak < 3 && totalTimeBreak < 30;
+            result.canLunch = totalLunch < 1 && totalTimeBreak < 30;
+        }
+        result.note = "S(" + itemShift + ") W(" + totalTimeWork + ") L("+ (result.canLunch?"Y":"N") + "," + totalLunch + ") B(" + (result.canBreak?"Y":"N") + "," + totalBreak + ":" + totalTimeBreak + ")";
+    }
+    return result;
+}
+function getShiftTotalTime(groupId, medida) {
     var itemShift = getScheduler(groupId);
-    return itemShift.end.diff(itemShift.start, 'hours');
+    var allWorkItems = items.get({
+        filter: function (item) {
+            return (item.typeOfWork === 'Work');
+        }
+    });
+    var firstAllWork = null;
+    if (allWorkItems != null && allWorkItems.length > 0) {
+        firstAllWork = allWorkItems[0];
+        allWorkItems.forEach(function (work) {
+            if (firstAllWork.orderDb > work.orderDb) {
+                firstAllWork = work.orderDb;
+            }
+        });
+    }
+    var result = 0;
+    if (firstAllWork != null) {
+        result = itemShift.end.diff(firstAllWork.start, medida);    
+    } else {
+        result = itemShift.end.diff(itemShift.start, medida);
+    }
+    return result;
 }
 function getScheduler(groupId) {
     var results = items.get({
@@ -336,6 +408,19 @@ function removerAvisoVisual(idSubGroup) {
     groups.update(g);
     persistItem(g, 'G');
 }
+
+function getLastOrderDb(idSubGroup) {
+    var orderDb = 0;
+    items.forEach(function (item) {
+        if (item.group.id == idSubGroup) {
+            if (orderDb < item.orderDb) {
+                orderDb = item.orderDb;
+            }
+        }
+    });
+    return orderDb;
+}
+
 function closeLastItem(idSubGroup, hora, minuto) {
     if (typeof hora == 'undefined') hora = getHora(hora);
     if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
@@ -346,9 +431,7 @@ function closeLastItem(idSubGroup, hora, minuto) {
         item.open = false;
         items.update(item);
         persistItem(item, 'I');
-        return item.orderDb;
     }
-    return 0;
 }
 function getHora(hora) {
     if (!hora) {
@@ -373,7 +456,8 @@ function getMinuto(minuto) {
 function addItem(idSubGroup, hora, minuto, endHour, endMinute, typeOfWork, open, className) {
     if (typeof hora == 'undefined') hora = getHora(hora);
     if (typeof minuto == 'undefined') minuto = getMinuto(minuto);
-    var orderDb = closeLastItem(idSubGroup, hora, minuto);
+    var orderDb = getLastOrderDb(idSubGroup);
+    closeLastItem(idSubGroup, hora, minuto);
     var idItem = null;
     if (typeof endHour == 'undefined' && typeof endMinute == 'undefined') {
         idItem = items.add({
@@ -404,23 +488,26 @@ function startme(idSubGroup, hora, minuto, endHour, endMinute) {
     addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Work', true, 'green');
 }
 function breakme(idSubGroup, hora, minuto, endHour, endMinute) {
-    var shift = getShiftTotalTime(idSubGroup);
+    var shift = getShiftTotalTime(idSubGroup, 'hours');
     var valid = true;
     if (shift < 4) {
         valid = confirm("This shift is less than 4 hour. Confirm break?");
-    }
-    if (shift >= 4 || shift < 5) {
-        valid = confirm("Shift between 4 and 5 hours only lunch is available. Confirm break?");
+    } else if (shift == 5) {
+        valid = confirm("Shift 5 hours only lunch is available. Confirm break?");
+    } else if (!canBreak(idSubGroup).canBreak) {
+        valid = confirm("Confirm Break?");
     }
     if (valid) {
         addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Break', true, 'red');
     }
 }
 function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
-    var shift = getShiftTotalTime(idSubGroup);
+    var shift = getShiftTotalTime(idSubGroup, 'hours');
     var valid = true;
     if (shift < 5) {
-        valid = confirm("This shift is less than 4 hour. Confirm?");
+        valid = confirm("This shift is less than 5 hour. Confirm Lunch?");
+    } else if (!canBreak(idSubGroup).canLunch) {
+        valid = confirm("Confirm Lunch?");
     }
     if (valid) {
         addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
@@ -590,7 +677,7 @@ function updateDateItem(item) {
     }
     if (typeof item.end != 'undefined') {
         item.end = moment(item.end);
-    }        
+    }
 }
 
 var socket;
