@@ -14,6 +14,7 @@ var app = new Vue({
         },
         employeeName: '',
         employeeNote: '',
+        daySheet: [],
         items: []
     },
     methods: {
@@ -513,29 +514,37 @@ function lunchme(idSubGroup, hora, minuto, endHour, endMinute) {
         addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Lunch', true, 'orange');
     }
 }
-function pushback(idSubGroup, hora, minuto, endHour, endMinute) {
+function pushback(idSubGroup, diff) {
     var scheduler = getScheduler(idSubGroup);
-    hora = scheduler.start.hours();
-    minuto = scheduler.start.minutes();
-    endHour = scheduler.start.clone().add(1, 'hours').hours();
-    endMinute = scheduler.start.minutes();
+    if (typeof diff === 'undefined') {
+        diff = 1;
+    }
+    var hora = scheduler.start.hours();
+    var minuto = scheduler.start.minutes();
+    var endHour = scheduler.start.clone().add(diff, 'hours').hours();
+    var endMinute = scheduler.start.minutes();
     addItem(idSubGroup, hora, minuto, endHour, endMinute, 'Push', false, 'aquamarine');
 }
 function homeme(idSubGroup, hora, minuto, endHour, endMinute) {
     var undefined;
     addItem(idSubGroup, hora, minuto, undefined, undefined, 'Home', false, undefined);
 }
-function adicionar(name, sector, horaInicial, minutoInicial, horaFinal, minutoFinal) {
+function adicionar(name, sector, id, horaInicial, minutoInicial, horaFinal, minutoFinal) {
     if (typeof name === 'undefined' || name == null || name.length <= 0) {
         return;
     }
-    var idSubGroup = groups.add({ employeeName: name, order: 0, checked: false, className: 'p' })[0];
+    var idSubGroup = null;
+    if (typeof id != 'undefined') {
+        idSubGroup = groups.add({ id: id, employeeName: name, order: 0, checked: false, className: 'p' })[0];
+    } else {
+        idSubGroup = groups.add({ employeeName: name, order: 0, checked: false, className: 'p' })[0];
+    }
     var c = montarNome(idSubGroup, name, false);
     groups.update({ id: idSubGroup, content: c });
-    if (!horaInicial) horaInicial = 9;
+    if (!horaInicial) horaInicial = 8;
     if (!minutoInicial) minutoInicial = 0;
     if (!horaFinal) horaFinal = horaInicial + 8;
-    if (!minutoFinal) minutoFinal = minutoInicial;
+    if (!minutoFinal) minutoFinal = 30;
     var id = items.add({
         group: idSubGroup,
         start: getMoment().hours(horaInicial).minutes(minutoInicial).seconds(0).milliseconds(0),
@@ -777,5 +786,84 @@ function load() {
         timeline.on('currentTimeTick', actionFired);
     });
     timeline.fit();
+}
+
+function loadNamesFromFile(ev) {
+    var file = ev.target.files[0];
+    var reader = new FileReader();
+    reader.onload = function (e) {
+        var content = e.target.result;
+        var splittedLines = content.split("\n");
+        var collection = [];
+        splittedLines.forEach(function (employee) {
+            var objects = employee.split("|");
+            if ((objects != null && objects.length > 2) && (objects[0] != "" || object[2] != null)) {
+                var obj = {};
+                obj.id = objects[0];
+                obj.employeeName = objects[2];
+                obj.sector = objects[12];
+                collection.push(obj);
+            }
+        });
+        app.daySheet = collection;
+    };
+    reader.readAsText(file);
+}
+
+function loadDaySheetFromFile(ev) {
+    var file = ev.target.files[0];
+    var reader = new FileReader();
+    reader.onload = function (e) {
+        var content = e.target.result;
+        var splittedLines = content.split("\n");
+        splittedLines.forEach(function (sheet) {
+            var objects = sheet.split("|");
+            var obj = {};
+            app.daySheet.forEach(function (daySheet) {
+                if (daySheet.id === objects[1]) {
+                    obj = daySheet;
+                }
+            });
+            obj.start = objects[3];
+            obj.end = objects[5];
+            obj.pushBack = objects[2];
+            obj.sectorDay = objects[11];
+            obj.canceled = objects[10];
+        });
+    };
+    reader.readAsText(file);
+}
+
+function loadFromFiles() {
+    app.daySheet.forEach(function (item) {
+        if (typeof item.start != 'undefined') {
+            var horaInicial = parseInt(item.start.substr(0, 2));
+            var minutoInicial = parseInt(item.start.substr(2, 2));
+            var horaFinal = parseInt(item.end.substr(0, 2));
+            var minutoFinal = parseInt(item.end.substr(2, 2));
+            var horaInicialPush = parseInt(item.pushBack.substr(0, 2));
+            var diff = horaInicialPush - horaInicial;
+            var sector = typeof item.sector != 'undefined' ? item.sector : 'Wipedown';
+            if (sector == "Cash_Sales") {
+                sector = "Cash and Sale";
+            } else if (sector == "Management") {
+                sector = "Wipedown";
+            }
+            if (item.sectorDay != " ") {
+                if (item.sectorDay == "P") {
+                    sector = "Prep";
+                }
+            }
+            if (item.canceled != "C" && item.canceled != "S") {
+                var existe = groups.get(item.id);
+                if (existe == null) {
+                    var idEmp = adicionar(item.employeeName, sector, item.id, horaInicial, minutoInicial, horaFinal, minutoFinal);
+                    if (diff > 0) {
+                        pushback(idEmp, diff);
+                    }
+                }
+            }
+        }
+    });
 }
 load();

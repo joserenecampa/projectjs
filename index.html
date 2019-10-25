@@ -23,7 +23,8 @@
                     </div>
                     <div class="modal-body">
                         <div v-if="employeeNote != ''" class="form-group">
-                            <textarea class="form-control" readonly id="exampleFormControlTextarea1" rows="3">{{employeeNote}}</textarea>
+                            <textarea class="form-control" readonly id="exampleFormControlTextarea1"
+                                rows="3">{{employeeNote}}</textarea>
                         </div>
                         <div v-for="item of items">
                             <div
@@ -40,7 +41,8 @@
                                 <input type="text" readonly class="form-control" v-model="item.type"
                                     v-if="item.type === 'Scheduled'">
                                 <input type="text" class="form-control" v-model="item.start">
-                                <input type="text" class="form-control" v-model="item.end" v-if="item.type != 'Home'">
+                                <input type="text" class="form-control" v-model="item.end"
+                                    v-if="item.type != 'Home'">
                                 <input type="text" readonly class="form-control" v-model="item.end"
                                     v-if="item.type === 'Home'">
                                 <input type="text" readonly class="form-control" v-model="item.elapsedTime">
@@ -82,7 +84,7 @@
                     <button type="button" v-on:click="adicionar" class="btn btn-primary">Add</button>
                 </div>
                 <div class="col">
-                    Version 3.2 Break's Rules
+                    Version 3.3 Upload
                 </div>
             </div>
             <div>
@@ -116,6 +118,18 @@
                 <div class="col">
                     <button type="button" class="btn btn-dark" onclick="javascript:load();">Load</button>
                 </div>
+            </div>
+        </form>
+        <form>
+            <div class="form-group">
+                <label for="employeeNames">Employee Names</label>
+                <input type="file" class="form-control-file" id="employeeNames" @change="loadNamesFromFile">
+            </div>
+            <div class="form-group">
+                <label for="daySheet">Day Sheet</label>
+                <input type="file" class="form-control-file" id="daySheet" @change="loadDaySheetFromFile">
+            </div>
+            <button type="button" class="btn btn-dark" onclick="javascript:loadFromFiles();">Load from File</button>
         </form>
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
