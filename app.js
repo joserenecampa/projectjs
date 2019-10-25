@@ -337,7 +337,7 @@ function canBreak(groupId) {
             result.canBreak = totalBreak < 3 && totalTimeBreak < 30;
             result.canLunch = totalLunch < 1 && totalTimeBreak < 30;
         }
-        result.note = "S(" + itemShift + ") W(" + totalTimeWork + ") L("+ (result.canLunch?"Y":"N") + "," + totalLunch + ") B(" + (result.canBreak?"Y":"N") + "," + totalBreak + ":" + totalTimeBreak + ")";
+        result.note = "S(" + itemShift + ") W(" + totalTimeWork + ") L(" + (result.canLunch ? "Y" : "N") + "," + totalLunch + ") B(" + (result.canBreak ? "Y" : "N") + "," + totalBreak + ":" + totalTimeBreak + ")";
     }
     return result;
 }
@@ -359,7 +359,7 @@ function getShiftTotalTime(groupId, medida) {
     }
     var result = 0;
     if (firstAllWork != null) {
-        result = itemShift.end.diff(firstAllWork.start, medida);    
+        result = itemShift.end.diff(firstAllWork.start, medida);
     } else {
         result = itemShift.end.diff(itemShift.start, medida);
     }
@@ -412,7 +412,7 @@ function removerAvisoVisual(idSubGroup) {
 function getLastOrderDb(idSubGroup) {
     var orderDb = 0;
     items.forEach(function (item) {
-        if (item.group.id == idSubGroup) {
+        if (item.group == idSubGroup) {
             if (orderDb < item.orderDb) {
                 orderDb = item.orderDb;
             }
