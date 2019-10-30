@@ -1,3 +1,12 @@
 service/server/target/*
+service/server/.settings/*
+service/server/.project
+service/server/.classpath
+service/server/dependency-reduced-pom.xml
+service/importer/target/*
+service/importer/.settings/*
+service/importer/.project
+service/importer/.classpath
+service/importer/dependency-reduced-pom.xml
 *.db
 arquivos/*

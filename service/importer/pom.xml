@@ -5,10 +5,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.timesheet</groupId>
-  <artifactId>server</artifactId>
+  <artifactId>importer</artifactId>
   <version>1</version>
 
-  <name>server</name>
+  <name>importer</name>
   <url>https://tsbro.com.br</url>
 
   <properties>
@@ -24,23 +24,11 @@
       <version>4.11</version>
       <scope>test</scope>
     </dependency>
-<dependency>
-    <groupId>io.undertow</groupId>
-    <artifactId>undertow-core</artifactId>
-    <version>2.0.27.Final</version>
-</dependency>
-
-<dependency>
-    <groupId>io.undertow</groupId>
-    <artifactId>undertow-servlet</artifactId>
-    <version>2.0.27.Final</version>
-</dependency>    
-
-<dependency>
-    <groupId>com.h2database</groupId>
-    <artifactId>h2</artifactId>
-    <version>1.4.199</version>
-</dependency>
+    <dependency>
+		<groupId>org.apache.httpcomponents</groupId>
+		<artifactId>httpclient</artifactId>
+		<version>4.5.10</version>
+	</dependency>
 <dependency>
   <groupId>com.google.code.gson</groupId>
   <artifactId>gson</artifactId>
@@ -63,7 +51,7 @@
             <configuration>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.timesheet.Main</mainClass>
+                  <mainClass>com.timesheet.importer.Main</mainClass>
                 </transformer>
               </transformers>
             </configuration>

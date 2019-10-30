@@ -173,15 +173,8 @@ public class Main {
         try {
             conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
             try {
-                conn.createStatement()
-                        .executeUpdate("create table timesheet (date varchar(8) primary key, items clob, groups clob)");
-            } catch (SQLException error) {
-                if (!error.getMessage().contains("already exists"))
-                    throw new RuntimeException(error);
-            }
-            try {
                 conn.createStatement().executeUpdate(
-                        "create table timesheet2 (date varchar(8), itemId varchar(36), orderDb int, item clob, type char, primary key (date, itemId))");
+                        "create table timesheet (date varchar(8), itemId varchar(72), orderDb int, item clob, type char, primary key (date, itemId))");
             } catch (SQLException error) {
                 if (!error.getMessage().contains("already exists"))
                     throw new RuntimeException(error);

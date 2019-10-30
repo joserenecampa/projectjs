@@ -728,6 +728,8 @@ if (window.WebSocket) {
                     items.remove(i);
                 }
             }
+        } else if (action.action === 'IMPORT') {
+            load();
         }
         timeline.fit();
     };

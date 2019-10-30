@@ -2,6 +2,12 @@
     "configurations": [
         {
             "type": "java",
+            "name": "CodeLens (Launch) - Main",
+            "request": "launch",
+            "mainClass": "com.timesheet.importer.Main"
+        },
+        {
+            "type": "java",
             "name": "CodeLens (Launch) - TimeSheetServlet",
             "request": "launch",
             "mainClass": "com.timesheet.TimeSheetServlet",
