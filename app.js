@@ -574,7 +574,6 @@ function showGroupStatus() {
     var hoje = moment().format("YYYYMMDD");
     var diaTimeline = getMoment().format("YYYYMMDD");
     if (hoje === diaTimeline) {
-        timeline.off('currentTimeTick');
         groups.forEach(function (group) {
             if (typeof group.employeeName === 'undefined' && typeof group.nestedGroups != 'undefined') {
                 var qtdWorking = 0;
@@ -607,19 +606,17 @@ function showGroupStatus() {
                 var content = "" + qtdWorking + "F " + qtdBreaking + "B " + qtdLunching + "L " + (qtdWorking + qtdBreaking + qtdLunching) + "T";
                 if (itemStatus != null && itemStatus.id != null) {
                     itemStatus.content = content;
-                    itemStatus.start = getMoment();
                     items.update(itemStatus);
                 } else if (group != null && group.id != null) {
                     items.add({
                         group: group.id,
-                        start: getMoment(),
+                        start: getMoment().hours(7).minutes(35).seconds(0).milliseconds(0),
                         persist: false,
                         content: content
                     });
                 }
             }
         });
-        timeline.on('currentTimeTick', actionFired);
     }
 }
 function fillSectors() {

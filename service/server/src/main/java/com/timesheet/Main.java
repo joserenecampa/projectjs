@@ -192,7 +192,7 @@ public class Main {
         }
     }
 
-    private static String initializeVariables(String variable) {
+    private static String getVar(String variable) {
         String result = System.getenv(variable);
         if (result == null || result.isEmpty()) {
             result = System.getProperty(variable);
@@ -246,13 +246,13 @@ public class Main {
     }
 
     private static void initializeVariables() {
-        Main.DB_URL = initializeVariables("DB_URL");
-        Main.DB_USER = initializeVariables("DB_USER");
-        Main.DB_PASS = initializeVariables("DB_PASS");
-        Main.SERVICE_PORT = initializeVariables("SERVICE_PORT");
-        Main.SERVICE_BIND = initializeVariables("SERVICE_BIND");
-        Main.ROOT_PATH = initializeVariables("ROOT_PATH");
-        Main.KEYSTORE_PATH = initializeVariables("KEYSTORE_PATH");
+        Main.DB_URL = getVar("DB_URL");
+        Main.DB_USER = getVar("DB_USER");
+        Main.DB_PASS = getVar("DB_PASS");
+        Main.SERVICE_PORT = getVar("SERVICE_PORT");
+        Main.SERVICE_BIND = getVar("SERVICE_BIND");
+        Main.ROOT_PATH = getVar("ROOT_PATH");
+        Main.KEYSTORE_PATH = getVar("KEYSTORE_PATH");
     }
 
 }

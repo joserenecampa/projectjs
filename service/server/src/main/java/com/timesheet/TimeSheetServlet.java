@@ -90,15 +90,16 @@ public class TimeSheetServlet extends HttpServlet {
         resp.setHeader("Content-Type", "application/json");
         Connection conn = (Connection) getServletContext().getAttribute("connection");
         String item = req.getParameter("item");
+        String importer = req.getParameter("importer");
         String date = req.getParameter("date");
-        saveOnlyOneItem(conn, date, item, resp);
+        saveOnlyOneItem(conn, date, item, importer, resp);
     }
 
-    private void saveOnlyOneItem(Connection conn, String date, String item, HttpServletResponse resp) {
-        this.saveOnlyOneItem(conn, date, item, resp, 1);
+    private void saveOnlyOneItem(Connection conn, String date, String item, String importer, HttpServletResponse resp) {
+        this.saveOnlyOneItem(conn, date, item, importer, resp, 1);
     }
 
-    private void saveOnlyOneItem(Connection conn, String date, String item, HttpServletResponse resp, int tentativa) {
+    private void saveOnlyOneItem(Connection conn, String date, String item, String importer, HttpServletResponse resp, int tentativa) {
         Gson gson = new Gson();
         Item itemObject = gson.fromJson(item, Item.class);
         String itemId = itemObject.getId();
@@ -109,19 +110,24 @@ public class TimeSheetServlet extends HttpServlet {
             ps.setString(2, itemId);
             ResultSet resultSet = ps.executeQuery();
             if (resultSet.next()) {
-                ps = conn.prepareStatement("update timesheet set item = ?, type = ? where date = ? and itemId = ?");
-                ps.setCharacterStream(1, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
-                ps.setString(2, type);
-                ps.setString(3, date);
-                ps.setString(4, itemId);
-                int total = ps.executeUpdate();
-                if (total > 0) {
-                    resp.setStatus(200);
-                    resp.getWriter().print("{\"status\": \"data atualizada com sucesso\"}");
+                if (!"true".equalsIgnoreCase(importer)) {
+                    ps = conn.prepareStatement("update timesheet set item = ?, type = ? where date = ? and itemId = ?");
+                    ps.setCharacterStream(1, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
+                    ps.setString(2, type);
+                    ps.setString(3, date);
+                    ps.setString(4, itemId);
+                    int total = ps.executeUpdate();
+                    if (total > 0) {
+                        resp.setStatus(200);
+                        resp.getWriter().print("{\"status\": \"data atualizada com sucesso\"}");
+                    } else {
+                        resp.setStatus(500);
+                        resp.getWriter().print(
+                                "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
+                    }    
                 } else {
-                    resp.setStatus(500);
-                    resp.getWriter().print(
-                            "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
+                    resp.setStatus(200);
+                    resp.getWriter().print("{\"status\": \"empregado ja cadastrado. nao atualizar ou importar novamente.\"}");
                 }
             } else {
                 ps.close();
@@ -145,7 +151,7 @@ public class TimeSheetServlet extends HttpServlet {
             if (tentativa > 5) {
                 throw new RuntimeException("Numero de tentativas foi excedido.", error);
             } else {
-                this.saveOnlyOneItem(conn, date, item, resp, tentativa + 1);
+                this.saveOnlyOneItem(conn, date, item, importer, resp, tentativa + 1);
             }
         } catch (Throwable error) {
             error.printStackTrace();
