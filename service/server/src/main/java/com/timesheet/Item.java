@@ -1,9 +1,13 @@
 package com.timesheet;
 
+import java.util.Set;
+import java.util.UUID;
+
 public class Item {
-    private String id;
+    private String id = UUID.randomUUID().toString();
     private String group;
     private Boolean open;
+    private Boolean checked;
     private String typeOfWork;
     private String start;
     private String end;
@@ -11,7 +15,10 @@ public class Item {
     private int orderDb;
     private String type;
     private String className;
-    private String[] nestedGroups;
+    private String employeeName;
+    private String content;
+    private String nestedInGroup;
+    private Set<String> nestedGroups;
 
     public String getId() {
         return id;
@@ -93,12 +100,47 @@ public class Item {
         this.className = className;
     }
 
-    public String[] getNestedGroups() {
+    public Set<String> getNestedGroups() {
         return nestedGroups;
     }
 
-    public void setNestedGroups(String[] nestedGroups) {
+    public void setNestedGroups(Set<String> nestedGroups) {
         this.nestedGroups = nestedGroups;
     }
 
+    public Boolean getChecked() {
+        return checked;
+    }
+
+    public void setChecked(Boolean checked) {
+        this.checked = checked;
+    }
+
+    public void setPersist(boolean persist) {
+        this.persist = persist;
+    }
+
+    public String getEmployeeName() {
+        return employeeName;
+    }
+
+    public void setEmployeeName(String employeeName) {
+        this.employeeName = employeeName;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getNestedInGroup() {
+        return nestedInGroup;
+    }
+
+    public void setNestedInGroup(String nestedInGroup) {
+        this.nestedInGroup = nestedInGroup;
+    }
 }

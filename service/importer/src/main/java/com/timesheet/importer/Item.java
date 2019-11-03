@@ -1,5 +1,6 @@
 package com.timesheet.importer;
 
+import java.util.Set;
 import java.util.UUID;
 
 public class Item {
@@ -10,14 +11,15 @@ public class Item {
     private String typeOfWork;
     private String start;
     private String end;
-    private boolean persist = true;
+    private Boolean persist;
     private int orderDb;
+    private int order;
     private String type;
     private String className;
     private String employeeName;
     private String content;
     private String nestedInGroup;
-    private String[] nestedGroups;
+    private Set<String> nestedGroups;
 
     public String getId() {
         return id!=null?id:UUID.randomUUID().toString();
@@ -67,11 +69,11 @@ public class Item {
         this.end = end;
     }
 
-    public boolean getPersist() {
+    public Boolean getPersist() {
         return persist;
     }
 
-    public void setPersist(boolean persist) {
+    public void setPersist(Boolean persist) {
         this.persist = persist;
     }
 
@@ -99,11 +101,11 @@ public class Item {
         this.className = className;
     }
 
-    public String[] getNestedGroups() {
+    public Set<String> getNestedGroups() {
         return nestedGroups;
     }
 
-    public void setNestedGroups(String[] nestedGroups) {
+    public void setNestedGroups(Set<String> nestedGroups) {
         this.nestedGroups = nestedGroups;
     }
 
@@ -138,4 +140,13 @@ public class Item {
     public void setNestedInGroup(String nestedInGroup) {
         this.nestedInGroup = nestedInGroup;
     }
+
+    public int getOrder() {
+        return order;
+    }
+
+    public void setOrder(int order) {
+        this.order = order;
+    }
+    
 }

@@ -5,7 +5,7 @@
   <artifactId>server</artifactId>
   <name>server</name>
   <version>1</version>
-  <url>http://www.example.com</url>
+  <url>https://tsbro.com.br</url>
   <build>
     <pluginManagement>
       <plugins>

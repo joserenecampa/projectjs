@@ -3,6 +3,7 @@ package com.timesheet.importer;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -14,6 +15,7 @@ import org.java_websocket.handshake.ServerHandshake;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +26,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashSet;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -35,6 +38,8 @@ public class Main {
     private static String DIR = null;
     private static String ZONE = null;
     private static ArrayList<Item> ITEMS = new ArrayList<Item>();
+    private static ArrayList<Item> PUSHBACKS = new ArrayList<Item>();
+    private static ArrayList<Item> TO_DELETE = new ArrayList<Item>();
 
     private String mountDate(String date, String hour) {
         int year = Integer.parseInt(date.substring(0, 4));
@@ -45,14 +50,14 @@ public class Main {
         Calendar cal = Calendar.getInstance();
         String zone = null;
         try {
-            String[] zones = TimeZone.getAvailableIDs(Integer.parseInt(Main.ZONE)*60*60*1000);
+            String[] zones = TimeZone.getAvailableIDs(Integer.parseInt(Main.ZONE) * 60 * 60 * 1000);
             if (zones != null && zones.length > 0) {
                 zone = zones[0];
             } else {
                 zone = "GMT";
             }
         } catch (Throwable error) {
-            zone= "GMT";
+            zone = "GMT";
         }
         cal.setTimeZone(TimeZone.getTimeZone(zone));
         cal.set(year, month, dat, hrs, min);
@@ -73,6 +78,16 @@ public class Main {
         item.setId(item.getGroup() + "-" + item.getTypeOfWork().toLowerCase() + "-" + item.getOrderDb());
         try {
             this.postData(date, item, "PERSIST", "I", false);
+            return item.getId();
+        } catch (Throwable error) {
+            System.out.println("Error on insert employee.");
+            error.printStackTrace();
+            return null;
+        }
+    }
+    private String persistGroup(String date, Item item) {
+        try {
+            this.postData(date, item, "PERSIST", "G", false);
             return item.getId();
         } catch (Throwable error) {
             System.out.println("Error on insert employee.");
@@ -122,6 +137,26 @@ public class Main {
             error.printStackTrace();
             return null;
         }
+    }
+
+    private Item getItem(String date, String id) {
+        Item result = null;
+        try {
+            HttpGet get = new HttpGet(Main.URL + "?date=" + URLEncoder.encode(date, "UTF-8") + "&id=" + URLEncoder.encode(id, "UTF-8"));
+            try (CloseableHttpClient httpClient = HttpClients.custom().setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .build(); CloseableHttpResponse response = httpClient.execute(get)) {
+                int httpResponseCode = response.getStatusLine().getStatusCode();
+                if (httpResponseCode == 200) {
+                    ByteArrayOutputStream os = new ByteArrayOutputStream((int) response.getEntity().getContentLength());
+                    response.getEntity().writeTo(os);
+                    String itemString = new String(os.toByteArray());
+                    Gson gson = new Gson();
+                    result = gson.fromJson(itemString, Item.class);
+                }
+            }
+        } catch (Throwable error) {
+        }
+        return result;
     }
 
     private void postData(String date, Item item, String action, String itemType, boolean importer) throws Throwable {
@@ -227,9 +262,29 @@ public class Main {
         System.out.println("Starting importer date " + date + ".");
         for (Item item : Main.ITEMS) {
             if (item.getStart() != null && !item.getStart().isEmpty()) {
-                String id = persistEmployee(date, item.getId(), item.getEmployeeName(), item.getGroup());
-                String schedulerId = persistScheduler(date, item.getId(), item.getStart(), item.getEnd());    
+                Item oldEmployee = getItem(date, item.getId());
+                if (oldEmployee != null) {
+                    item.setGroup(oldEmployee.getGroup());
+                } else {
+                    String id = persistEmployee(date, item.getId(), item.getEmployeeName(), item.getGroup());
+                    Item group = getItem(date, item.getGroup());
+                    if (group == null) {
+                        group = new Item();
+                        group.setId(item.getGroup());
+                        group.setContent(item.getGroup());
+                        group.setOrder(0);
+                        group.setNestedGroups(new HashSet<String>());
+                        group.getNestedGroups().add(item.getId());
+                        persistGroup(date, group);
+                    } else if (group.getNestedGroups().add(id)) {
+                        persistGroup(date, group);
+                    }    
+                }
+                String schedulerId = persistScheduler(date, item.getId(), item.getStart(), item.getEnd());
             }
+        }
+        for (Item push : Main.PUSHBACKS) {
+            persistPushback(date, push.getGroup(), push.getStart(), push.getEnd());
         }
     }
 
@@ -245,16 +300,28 @@ public class Main {
                     String pushBack = objects[2];
                     String sectorDay = objects[11];
                     String canceled = objects[10];
-                    Item itemToRemove = null;
                     for (Item item : Main.ITEMS) {
                         if (item.getId().equals(itemId)) {
                             if ("C".equals(canceled) || "S".equals(canceled)) {
-                                itemToRemove = item;
+                                if (Main.TO_DELETE == null) {
+                                    Main.TO_DELETE = new ArrayList<Item>();
+                                }
+                                Main.TO_DELETE.add(item);
                             } else {
                                 item.setStart(start);
                                 item.setEnd(end);
                                 if ("P".equals(sectorDay)) {
                                     item.setGroup("Prep");
+                                }
+                                if (pushBack != null && !pushBack.equals(start)) {
+                                    Item itemPushBack = new Item();
+                                    itemPushBack.setGroup(item.getId());
+                                    itemPushBack.setStart(start);
+                                    itemPushBack.setEnd(pushBack);
+                                    if (Main.PUSHBACKS == null) {
+                                        Main.PUSHBACKS = new ArrayList<>();
+                                    }
+                                    Main.PUSHBACKS.add(itemPushBack);
                                 }
                             }
                             break;

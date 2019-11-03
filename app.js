@@ -610,7 +610,7 @@ function showGroupStatus() {
                 } else if (group != null && group.id != null) {
                     items.add({
                         group: group.id,
-                        start: getMoment().hours(7).minutes(35).seconds(0).milliseconds(0),
+                        start: getMoment().hours(9).minutes(0).seconds(0).milliseconds(0),
                         persist: false,
                         content: content
                     });

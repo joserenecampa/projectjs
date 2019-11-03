@@ -22,48 +22,93 @@ public class TimeSheetServlet extends HttpServlet {
 
     @Override
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        if (request.getMethod().equalsIgnoreCase("PATCH")){
-           doPatch(request, response);
+        if (request.getMethod().equalsIgnoreCase("PATCH")) {
+            doPatch(request, response);
         } else {
             super.service(request, response);
         }
-    }    
+    }
+
+    private Item getItem(String date, String id, Connection conn) {
+        if (id != null && !id.isEmpty()) {
+            try {
+                PreparedStatement ps = conn.prepareStatement("select item from timesheet where date = ?");
+                ps.setString(1, date);
+                ResultSet resultSet = ps.executeQuery();
+                Gson gson = new Gson();
+                Item result = null;
+                while (resultSet.next()) {
+                    result = gson.fromJson(resultSet.getString(1), Item.class);
+                    if (id.equals(result.getId())) {
+                        return result;
+                    }
+                }
+                return null;
+            } catch (Throwable error) {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.setHeader("Content-Type", "application/json");
         Connection conn = (Connection) getServletContext().getAttribute("connection");
         String date = req.getParameter("date");
-        try {
-            StringBuilder items = new StringBuilder("[");
-            PreparedStatement ps = conn.prepareStatement("select item from timesheet where date = ? and type = 'I' order by orderDb");
-            ps.setString(1, date);
-            ResultSet resultSet = ps.executeQuery();
-            boolean inicio = true;
-            while (resultSet.next()) {
-                if (!inicio)
-                    items.append(",");
-                items.append(resultSet.getString(1));
-                inicio = false;
+        String id = req.getParameter("id");
+        if (id != null && !id.isEmpty()) {
+            try {
+                Item result = getItem(date, id, conn);
+                if (result != null) {
+                    resp.setStatus(200);
+                    Gson gson = new Gson();
+                    resp.getWriter().print(gson.toJson(result));
+                } else {
+                    resp.setStatus(404);
+                    resp.getWriter().print("{\"status\": \"Item not found\"}");
+                }
+            } catch (Throwable error) {
+                resp.setStatus(500);
+                resp.getWriter().print("{\"status\": \"Error: " + error.getMessage() + "\"}");
+                error.printStackTrace();
             }
-            items.append("]");
-            StringBuilder groups = new StringBuilder("[");
-            ps.close();
-            ps = conn.prepareStatement("select item from timesheet where date = ? and type = 'G' order by orderDb");
-            ps.setString(1, date);
-            resultSet = ps.executeQuery();
-            inicio = true;
-            while (resultSet.next()) {
-                if (!inicio)
-                    groups.append(",");
-                groups.append(resultSet.getString(1));
-                inicio = false;
+        } else {
+            try {
+                StringBuilder items = new StringBuilder("[");
+                PreparedStatement ps = conn
+                        .prepareStatement("select item from timesheet where date = ? and type = 'I' order by orderDb");
+                ps.setString(1, date);
+                ResultSet resultSet = ps.executeQuery();
+                boolean inicio = true;
+                while (resultSet.next()) {
+                    if (!inicio)
+                        items.append(",");
+                    items.append(resultSet.getString(1));
+                    inicio = false;
+                }
+                items.append("]");
+                StringBuilder groups = new StringBuilder("[");
+                ps.close();
+                ps = conn.prepareStatement("select item from timesheet where date = ? and type = 'G' order by orderDb");
+                ps.setString(1, date);
+                resultSet = ps.executeQuery();
+                inicio = true;
+                while (resultSet.next()) {
+                    if (!inicio)
+                        groups.append(",");
+                    groups.append(resultSet.getString(1));
+                    inicio = false;
+                }
+                groups.append("]");
+                resp.setStatus(200);
+                resp.getWriter().print("{\"items\": " + items.toString() + ", \"groups\": " + groups.toString() + "}");
+            } catch (Throwable error) {
+                resp.setStatus(500);
+                resp.getWriter().print("{\"status\": \"Error: " + error.getMessage() + "\"}");
+                error.printStackTrace();
             }
-            groups.append("]");
-            resp.setStatus(200);
-            resp.getWriter().print("{\"items\": " + items.toString() + ", \"groups\": " + groups.toString() + "}");
-        } catch (Throwable error) {
-            error.printStackTrace();
         }
     }
 
@@ -84,7 +129,6 @@ public class TimeSheetServlet extends HttpServlet {
     protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
     }
 
-
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.setHeader("Content-Type", "application/json");
@@ -99,9 +143,15 @@ public class TimeSheetServlet extends HttpServlet {
         this.saveOnlyOneItem(conn, date, item, importer, resp, 1);
     }
 
-    private void saveOnlyOneItem(Connection conn, String date, String item, String importer, HttpServletResponse resp, int tentativa) {
+    private void saveOnlyOneItem(Connection conn, String date, String item, String importer, HttpServletResponse resp,
+            int tentativa) {
         Gson gson = new Gson();
         Item itemObject = gson.fromJson(item, Item.class);
+        if (itemObject.getChecked() != null) {
+            itemObject.setChecked(false);
+            itemObject.setContent(itemObject.getContent().replace("checked", ""));
+            item = gson.toJson(itemObject);
+        }
         String itemId = itemObject.getId();
         String type = extractType(item);
         try {
@@ -124,14 +174,16 @@ public class TimeSheetServlet extends HttpServlet {
                         resp.setStatus(500);
                         resp.getWriter().print(
                                 "{\"error\": \"nao foi possivel atualizar os dados pois nao retornou valor aceitavel\"}");
-                    }    
+                    }
                 } else {
                     resp.setStatus(200);
-                    resp.getWriter().print("{\"status\": \"empregado ja cadastrado. nao atualizar ou importar novamente.\"}");
+                    resp.getWriter()
+                            .print("{\"status\": \"empregado ja cadastrado. nao atualizar ou importar novamente.\"}");
                 }
             } else {
                 ps.close();
-                ps = conn.prepareStatement("insert into timesheet (date, itemId, orderDb, item, type) values (?,?,?,?,?)");
+                ps = conn.prepareStatement(
+                        "insert into timesheet (date, itemId, orderDb, item, type) values (?,?,?,?,?)");
                 ps.setString(1, date);
                 ps.setString(2, itemId);
                 ps.setInt(3, itemObject.getOrderDb());
