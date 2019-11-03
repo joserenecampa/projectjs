@@ -150,8 +150,8 @@ public class TimeSheetServlet extends HttpServlet {
         if (itemObject.getChecked() != null) {
             itemObject.setChecked(false);
             itemObject.setContent(itemObject.getContent().replace("checked", ""));
-            item = gson.toJson(itemObject);
         }
+        item = gson.toJson(itemObject);
         String itemId = itemObject.getId();
         String type = extractType(item);
         try {
