@@ -3,6 +3,7 @@ package com.timesheet.importer;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -37,6 +38,7 @@ public class Main {
     private static String URL = null;
     private static String DIR = null;
     private static String ZONE = null;
+    private static TimeZone TIMEZONE = null;
     private static ArrayList<Item> ITEMS = new ArrayList<Item>();
     private static ArrayList<Item> PUSHBACKS = new ArrayList<Item>();
     private static ArrayList<Item> TO_DELETE = new ArrayList<Item>();
@@ -48,18 +50,7 @@ public class Main {
         int hrs = Integer.parseInt(hour.substring(0, 2));
         int min = Integer.parseInt(hour.substring(2, 4));
         Calendar cal = Calendar.getInstance();
-        String zone = null;
-        try {
-            String[] zones = TimeZone.getAvailableIDs(Integer.parseInt(Main.ZONE) * 60 * 60 * 1000);
-            if (zones != null && zones.length > 0) {
-                zone = zones[0];
-            } else {
-                zone = "GMT";
-            }
-        } catch (Throwable error) {
-            zone = "GMT";
-        }
-        cal.setTimeZone(TimeZone.getTimeZone(zone));
+        cal.setTimeZone(Main.TIMEZONE);
         cal.set(year, month, dat, hrs, min);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -77,7 +68,7 @@ public class Main {
         item.setTypeOfWork("Push");
         item.setId(item.getGroup() + "-" + item.getTypeOfWork().toLowerCase() + "-" + item.getOrderDb());
         try {
-            this.postData(date, item, "PERSIST", "I", false);
+            this.postItem(date, item, "PERSIST", "I", false);
             return item.getId();
         } catch (Throwable error) {
             System.out.println("Error on insert employee.");
@@ -85,9 +76,10 @@ public class Main {
             return null;
         }
     }
+
     private String persistGroup(String date, Item item) {
         try {
-            this.postData(date, item, "PERSIST", "G", false);
+            this.postItem(date, item, "PERSIST", "G", false);
             return item.getId();
         } catch (Throwable error) {
             System.out.println("Error on insert employee.");
@@ -105,7 +97,7 @@ public class Main {
         item.setType("background");
         item.setId(item.getGroup() + "-" + item.getType() + "-" + item.getOrderDb());
         try {
-            this.postData(date, item, "PERSIST", "I", false);
+            this.postItem(date, item, "PERSIST", "I", false);
             return item.getId();
         } catch (Throwable error) {
             System.out.println("Error on insert employee.");
@@ -130,7 +122,7 @@ public class Main {
                 + "\");' type='checkbox' >" + item.getEmployeeName());
         item.setNestedInGroup(sector != null ? sector : "Wipedown");
         try {
-            this.postData(date, item, "PERSIST", "G", true);
+            this.postItem(date, item, "PERSIST", "G", true);
             return item.getId();
         } catch (Throwable error) {
             System.out.println("Error on insert employee.");
@@ -141,10 +133,15 @@ public class Main {
 
     private Item getItem(String date, String id) {
         Item result = null;
+        if (date == null || date.isEmpty() || id == null || id.isEmpty()) {
+            return null;
+        }
         try {
-            HttpGet get = new HttpGet(Main.URL + "?date=" + URLEncoder.encode(date, "UTF-8") + "&id=" + URLEncoder.encode(id, "UTF-8"));
-            try (CloseableHttpClient httpClient = HttpClients.custom().setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                    .build(); CloseableHttpResponse response = httpClient.execute(get)) {
+            HttpGet get = new HttpGet(Main.URL + "?date=" + URLEncoder.encode(date, "UTF-8") + "&itemId="
+                    + URLEncoder.encode(id, "UTF-8"));
+            try (CloseableHttpClient httpClient = HttpClients.custom()
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE).build();
+                    CloseableHttpResponse response = httpClient.execute(get)) {
                 int httpResponseCode = response.getStatusLine().getStatusCode();
                 if (httpResponseCode == 200) {
                     ByteArrayOutputStream os = new ByteArrayOutputStream((int) response.getEntity().getContentLength());
@@ -155,11 +152,53 @@ public class Main {
                 }
             }
         } catch (Throwable error) {
+            error.printStackTrace();
         }
         return result;
     }
 
-    private void postData(String date, Item item, String action, String itemType, boolean importer) throws Throwable {
+    private void deleteItem(String date, Item item) {
+        Item exist = getItem(date, item.getId());
+        if (exist == null) {
+            return;
+        }
+        Gson gson = new Gson();
+        String json = gson.toJson(item);
+        try {
+            HttpDelete delete = new HttpDelete(Main.URL + "?date=" + URLEncoder.encode(date, "UTF-8") + "&itemId="
+                    + URLEncoder.encode(item.getId(), "UTF-8"));
+            try (CloseableHttpClient httpClient = HttpClients.custom()
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE).build();
+                    CloseableHttpResponse response = httpClient.execute(delete)) {
+                int httpResponseCode = response.getStatusLine().getStatusCode();
+                if (httpResponseCode > 299) {
+                    System.err.println("Error on Delete [HTTP " + httpResponseCode + "] Data: Date " + date
+                            + " - Item: " + json + ". Response: " + response.getStatusLine().getReasonPhrase());
+                } else {
+                    Status status = new Status();
+                    status.setStatus("No content");
+                    if (response.getEntity() != null) {
+                        ByteArrayOutputStream os = new ByteArrayOutputStream(
+                                (int) response.getEntity().getContentLength());
+                        response.getEntity().writeTo(os);
+                        String statusString = new String(os.toByteArray());
+                        status = gson.fromJson(statusString, Status.class);
+                    }
+                    System.out.println("Delete [HTTP " + httpResponseCode + "] Success. Data: Date " + date
+                            + " - Item: " + json + ". Response: " + status.getStatus());
+                    WebSocketMessage message = new WebSocketMessage();
+                    message.setItem(item);
+                    message.setAction("REMOVE");
+                    message.setType("G");
+                    this.sendBroadcastMessage(message);
+                }
+            }
+        } catch (Throwable error) {
+            error.printStackTrace();
+        }
+    }
+
+    private void postItem(String date, Item item, String action, String itemType, boolean importer) throws Throwable {
         HttpPost post = new HttpPost(Main.URL);
         Gson gson = new Gson();
         String json = gson.toJson(item);
@@ -256,17 +295,17 @@ public class Main {
             return;
         }
         Calendar cal = Calendar.getInstance();
-        cal.setTimeZone(TimeZone.getTimeZone("GMT"));
+        cal.setTimeZone(Main.TIMEZONE);
         String now = cal.toInstant().toString();
         String date = now.substring(0, 4) + now.substring(5, 7) + now.substring(8, 10);
         System.out.println("Starting importer date " + date + ".");
         for (Item item : Main.ITEMS) {
-            if (item.getStart() != null && !item.getStart().isEmpty()) {
+            if (item.getStart() != null && !item.getStart().isEmpty()
+                    && (!Main.TO_DELETE.contains(item) || !Main.PUSHBACKS.contains(item))) {
                 Item oldEmployee = getItem(date, item.getId());
                 if (oldEmployee != null) {
-                    item.setGroup(oldEmployee.getGroup());
+                    item.setNestedInGroup(oldEmployee.getNestedInGroup());
                 } else {
-                    String id = persistEmployee(date, item.getId(), item.getEmployeeName(), item.getGroup());
                     Item group = getItem(date, item.getGroup());
                     if (group == null) {
                         group = new Item();
@@ -276,9 +315,10 @@ public class Main {
                         group.setNestedGroups(new HashSet<String>());
                         group.getNestedGroups().add(item.getId());
                         persistGroup(date, group);
-                    } else if (group.getNestedGroups().add(id)) {
+                    } else if (group.getNestedGroups().add(item.getId())) {
                         persistGroup(date, group);
-                    }    
+                    }
+                    String id = persistEmployee(date, item.getId(), item.getEmployeeName(), item.getGroup());
                 }
                 String schedulerId = persistScheduler(date, item.getId(), item.getStart(), item.getEnd());
             }
@@ -286,9 +326,14 @@ public class Main {
         for (Item push : Main.PUSHBACKS) {
             persistPushback(date, push.getGroup(), push.getStart(), push.getEnd());
         }
+        for (Item toDelete : Main.TO_DELETE) {
+            deleteItem(date, toDelete);
+        }
     }
 
     private boolean loadDaySheetFromFile(Path file) {
+        Main.TO_DELETE = new ArrayList<Item>();
+        Main.PUSHBACKS = new ArrayList<>();
         if (Main.ITEMS != null && Main.ITEMS.size() > 0) {
             try {
                 List<String> allLines = Files.readAllLines(file);
@@ -303,9 +348,6 @@ public class Main {
                     for (Item item : Main.ITEMS) {
                         if (item.getId().equals(itemId)) {
                             if ("C".equals(canceled) || "S".equals(canceled)) {
-                                if (Main.TO_DELETE == null) {
-                                    Main.TO_DELETE = new ArrayList<Item>();
-                                }
                                 Main.TO_DELETE.add(item);
                             } else {
                                 item.setStart(start);
@@ -318,9 +360,6 @@ public class Main {
                                     itemPushBack.setGroup(item.getId());
                                     itemPushBack.setStart(start);
                                     itemPushBack.setEnd(pushBack);
-                                    if (Main.PUSHBACKS == null) {
-                                        Main.PUSHBACKS = new ArrayList<>();
-                                    }
                                     Main.PUSHBACKS.add(itemPushBack);
                                 }
                             }
@@ -395,6 +434,18 @@ public class Main {
         if (Main.ZONE == null) {
             Main.ZONE = "-3";
         }
+        String zone = null;
+        try {
+            String[] zones = TimeZone.getAvailableIDs(Integer.parseInt(Main.ZONE) * 60 * 60 * 1000);
+            if (zones != null && zones.length > 0) {
+                zone = zones[0];
+            } else {
+                zone = "GMT";
+            }
+        } catch (Throwable error) {
+            zone = "GMT";
+        }
+        Main.TIMEZONE = TimeZone.getTimeZone(zone);
     }
 
     public static void main(String[] args) throws Throwable {

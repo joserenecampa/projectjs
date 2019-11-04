@@ -29,19 +29,16 @@ public class TimeSheetServlet extends HttpServlet {
         }
     }
 
-    private Item getItem(String date, String id, Connection conn) {
-        if (id != null && !id.isEmpty()) {
+    private Item getItem(String date, String itemId, Connection conn) {
+        if (itemId != null && !itemId.isEmpty()) {
             try {
-                PreparedStatement ps = conn.prepareStatement("select item from timesheet where date = ?");
+                PreparedStatement ps = conn.prepareStatement("select item from timesheet where date = ? and itemId = ?");
                 ps.setString(1, date);
+                ps.setString(2, itemId);
                 ResultSet resultSet = ps.executeQuery();
                 Gson gson = new Gson();
-                Item result = null;
-                while (resultSet.next()) {
-                    result = gson.fromJson(resultSet.getString(1), Item.class);
-                    if (id.equals(result.getId())) {
-                        return result;
-                    }
+                if (resultSet.next()) {
+                    return gson.fromJson(resultSet.getString(1), Item.class);
                 }
                 return null;
             } catch (Throwable error) {
@@ -57,10 +54,10 @@ public class TimeSheetServlet extends HttpServlet {
         resp.setHeader("Content-Type", "application/json");
         Connection conn = (Connection) getServletContext().getAttribute("connection");
         String date = req.getParameter("date");
-        String id = req.getParameter("id");
-        if (id != null && !id.isEmpty()) {
+        String itemId = req.getParameter("itemId");
+        if (itemId != null && !itemId.isEmpty()) {
             try {
-                Item result = getItem(date, id, conn);
+                Item result = getItem(date, itemId, conn);
                 if (result != null) {
                     resp.setStatus(200);
                     Gson gson = new Gson();
@@ -161,11 +158,12 @@ public class TimeSheetServlet extends HttpServlet {
             ResultSet resultSet = ps.executeQuery();
             if (resultSet.next()) {
                 if (!"true".equalsIgnoreCase(importer)) {
-                    ps = conn.prepareStatement("update timesheet set item = ?, type = ? where date = ? and itemId = ?");
+                    ps = conn.prepareStatement("update timesheet set item = ?, type = ?, groupId = ? where date = ? and itemId = ?");
                     ps.setCharacterStream(1, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
                     ps.setString(2, type);
-                    ps.setString(3, date);
-                    ps.setString(4, itemId);
+                    ps.setString(3, itemObject.getGroup());
+                    ps.setString(4, date);
+                    ps.setString(5, itemId);
                     int total = ps.executeUpdate();
                     if (total > 0) {
                         resp.setStatus(200);
@@ -183,12 +181,13 @@ public class TimeSheetServlet extends HttpServlet {
             } else {
                 ps.close();
                 ps = conn.prepareStatement(
-                        "insert into timesheet (date, itemId, orderDb, item, type) values (?,?,?,?,?)");
+                        "insert into timesheet (date, itemId, groupId, orderDb, item, type) values (?,?,?,?,?,?)");
                 ps.setString(1, date);
                 ps.setString(2, itemId);
-                ps.setInt(3, itemObject.getOrderDb());
-                ps.setCharacterStream(4, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
-                ps.setString(5, type);
+                ps.setString(3, itemObject.getGroup());
+                ps.setInt(4, itemObject.getOrderDb());
+                ps.setCharacterStream(5, new InputStreamReader(new ByteArrayInputStream(item.getBytes())));
+                ps.setString(6, type);
                 int total = ps.executeUpdate();
                 if (total > 0) {
                     resp.setStatus(200);
@@ -217,11 +216,12 @@ public class TimeSheetServlet extends HttpServlet {
 
     private void deleteItem(Connection conn, String date, String itemId, HttpServletResponse resp) {
         try {
-            PreparedStatement ps = conn.prepareStatement("delete from timesheet where date = ? and itemId = ?");
+            PreparedStatement ps = conn.prepareStatement("delete from timesheet where date = ? and (itemId = ? or groupId = ?)");
             ps.setString(1, date);
             ps.setString(2, itemId);
+            ps.setString(3, itemId);
             int total = ps.executeUpdate();
-            if (total == 1) {
+            if (total > 0) {
                 resp.setStatus(204);
             } else {
                 resp.setStatus(500);

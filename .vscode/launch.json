@@ -2,20 +2,15 @@
     "configurations": [
         {
             "type": "java",
-            "name": "CodeLens (Launch) - Main",
+            "name": "importer",
             "request": "launch",
-            "mainClass": "com.timesheet.importer.Main"
+            "mainClass": "com.timesheet.importer.Main",
+            "projectName": "importer",
+            "vmArgs": "-DXms64m -DXmx64m -DZONE=-3 -DURL=https://localhost/ts -DDIR=d:\\dev\\junior\\github\\projectjs\\arquivos\\"
         },
         {
             "type": "java",
-            "name": "CodeLens (Launch) - TimeSheetServlet",
-            "request": "launch",
-            "mainClass": "com.timesheet.TimeSheetServlet",
-            "projectName": "server"
-        },
-        {
-            "type": "java",
-            "name": "CodeLens (Launch) - Main",
+            "name": "server",
             "request": "launch",
             "mainClass": "com.timesheet.Main",
             "projectName": "server",

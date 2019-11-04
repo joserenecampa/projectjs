@@ -22,11 +22,11 @@ public class Item {
     private Set<String> nestedGroups;
 
     public String getId() {
-        return id!=null?id:UUID.randomUUID().toString();
+        return id;
     }
 
     public void setId(String id) {
-        this.id = id!=null?id:UUID.randomUUID().toString();
+        this.id = id;
     }
 
     public String getGroup() {
