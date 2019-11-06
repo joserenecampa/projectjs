@@ -10,3 +10,4 @@ service/importer/.classpath
 service/importer/dependency-reduced-pom.xml
 *.db
 arquivos/*
+importer.log

@@ -10,6 +10,8 @@ import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
@@ -34,6 +36,8 @@ import java.util.TimeZone;
 import com.google.gson.Gson;
 
 public class Main {
+
+    private static final Logger logger = LogManager.getLogger(Main.class);
 
     private static String URL = null;
     private static String DIR = null;
@@ -71,8 +75,7 @@ public class Main {
             this.postItem(date, item, "PERSIST", "I", false);
             return item.getId();
         } catch (Throwable error) {
-            System.out.println("Error on insert employee.");
-            error.printStackTrace();
+            logger.info("Error on insert pushback.", error);
             return null;
         }
     }
@@ -82,8 +85,7 @@ public class Main {
             this.postItem(date, item, "PERSIST", "G", false);
             return item.getId();
         } catch (Throwable error) {
-            System.out.println("Error on insert employee.");
-            error.printStackTrace();
+            logger.info("Error on insert group.", error);
             return null;
         }
     }
@@ -100,8 +102,7 @@ public class Main {
             this.postItem(date, item, "PERSIST", "I", false);
             return item.getId();
         } catch (Throwable error) {
-            System.out.println("Error on insert employee.");
-            error.printStackTrace();
+            logger.info("Error on insert scheduler.", error);
             return null;
         }
     }
@@ -125,8 +126,7 @@ public class Main {
             this.postItem(date, item, "PERSIST", "G", true);
             return item.getId();
         } catch (Throwable error) {
-            System.out.println("Error on insert employee.");
-            error.printStackTrace();
+            logger.info("Error on insert employee.", error);
             return null;
         }
     }
@@ -150,9 +150,11 @@ public class Main {
                     Gson gson = new Gson();
                     result = gson.fromJson(itemString, Item.class);
                 }
+            } catch (Throwable error) {
+                logger.info("General error", error);
             }
         } catch (Throwable error) {
-            error.printStackTrace();
+            logger.info("General error", error);
         }
         return result;
     }
@@ -172,7 +174,7 @@ public class Main {
                     CloseableHttpResponse response = httpClient.execute(delete)) {
                 int httpResponseCode = response.getStatusLine().getStatusCode();
                 if (httpResponseCode > 299) {
-                    System.err.println("Error on Delete [HTTP " + httpResponseCode + "] Data: Date " + date
+                    logger.info("Error on Delete [HTTP " + httpResponseCode + "] Data: Date " + date
                             + " - Item: " + json + ". Response: " + response.getStatusLine().getReasonPhrase());
                 } else {
                     Status status = new Status();
@@ -184,7 +186,7 @@ public class Main {
                         String statusString = new String(os.toByteArray());
                         status = gson.fromJson(statusString, Status.class);
                     }
-                    System.out.println("Delete [HTTP " + httpResponseCode + "] Success. Data: Date " + date
+                    logger.info("Delete [HTTP " + httpResponseCode + "] Success. Data: Date " + date
                             + " - Item: " + json + ". Response: " + status.getStatus());
                     WebSocketMessage message = new WebSocketMessage();
                     message.setItem(item);
@@ -194,7 +196,7 @@ public class Main {
                 }
             }
         } catch (Throwable error) {
-            error.printStackTrace();
+            logger.info("General error", error);
         }
     }
 
@@ -213,14 +215,14 @@ public class Main {
                 .build(); CloseableHttpResponse response = httpClient.execute(post)) {
             int httpResponseCode = response.getStatusLine().getStatusCode();
             if (httpResponseCode > 399) {
-                System.err.println("Error on Post [HTTP " + httpResponseCode + "] Data: Date " + date + " - Item: "
+                logger.info("Error on Post [HTTP " + httpResponseCode + "] Data: Date " + date + " - Item: "
                         + json + ". Response: " + response.getStatusLine().getReasonPhrase());
             } else {
                 ByteArrayOutputStream os = new ByteArrayOutputStream((int) response.getEntity().getContentLength());
                 response.getEntity().writeTo(os);
                 String statusString = new String(os.toByteArray());
                 Status status = gson.fromJson(statusString, Status.class);
-                System.out.println("Post [HTTP " + httpResponseCode + "] Success. Data: Date " + date + " - Item: "
+                logger.info("Post [HTTP " + httpResponseCode + "] Success. Data: Date " + date + " - Item: "
                         + json + ". Response: " + status.getStatus());
                 WebSocketMessage message = new WebSocketMessage();
                 message.setItem(item);
@@ -258,8 +260,8 @@ public class Main {
         Path daySheetFile = Paths.get(Main.DIR);
         try {
             daySheetFile.register(watcher, ENTRY_CREATE, ENTRY_MODIFY);
-        } catch (IOException x) {
-            System.err.println(x);
+        } catch (IOException error) {
+            logger.info("General error", error);
         }
         for (;;) {
             WatchKey key;
@@ -298,7 +300,7 @@ public class Main {
         cal.setTimeZone(Main.TIMEZONE);
         String now = cal.toInstant().toString();
         String date = now.substring(0, 4) + now.substring(5, 7) + now.substring(8, 10);
-        System.out.println("Starting importer date " + date + ".");
+        logger.info("Starting importer date " + date + ".");
         for (Item item : Main.ITEMS) {
             if (item.getStart() != null && !item.getStart().isEmpty()
                     && (!Main.TO_DELETE.contains(item) || !Main.PUSHBACKS.contains(item))) {
@@ -368,8 +370,8 @@ public class Main {
                     }
                 }
                 return true;
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException error) {
+                logger.info("General error", error);
                 return false;
             }
         } else {
@@ -400,8 +402,8 @@ public class Main {
                 }
             }
             return true;
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException error) {
+            logger.info("General error", error);
             return false;
         }
     }
@@ -411,12 +413,12 @@ public class Main {
         if (result == null || result.isEmpty()) {
             result = System.getProperty(variable);
             if (result == null) {
-                System.out.println(variable + ": NAO LOCALIZEI");
+                logger.info(variable + ": NAO LOCALIZEI");
             } else {
-                System.out.println("jvm -> " + variable + ": " + result);
+                logger.info("jvm -> " + variable + ": " + result);
             }
         } else {
-            System.out.println("env -> " + variable + ": " + result);
+            logger.info("env -> " + variable + ": " + result);
         }
         return result;
     }
@@ -426,13 +428,19 @@ public class Main {
         Main.DIR = getVar("DIR");
         Main.ZONE = getVar("ZONE");
         if (Main.URL == null) {
-            Main.URL = "https://localhost/ts";
+            Main.URL = getVar("TSBRO_URL");
+            if (Main.URL == null)
+                Main.URL = "https://localhost/ts";
         }
         if (Main.DIR == null) {
-            Main.DIR = "d:\\dev\\junior\\github\\projectjs\\arquivos\\";
+            Main.DIR = getVar("TSBRO_DIR");
+            if (Main.DIR == null)
+                Main.DIR = "d:\\dev\\junior\\github\\projectjs\\arquivos\\";
         }
         if (Main.ZONE == null) {
-            Main.ZONE = "-3";
+            Main.ZONE = getVar("TSBRO_ZONE");
+            if (Main.ZONE == null)
+                Main.ZONE = "-3";
         }
         String zone = null;
         try {
@@ -449,6 +457,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws Throwable {
+        new TrayIcon();
         initializeVariables();
         Main main = new Main();
         main.watchFiles();
