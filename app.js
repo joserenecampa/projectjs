@@ -1,5 +1,17 @@
 var IDENTIFIER = uuidv4();
 var timeSheetDayOffset = 0;
+let uri = window.location.href.split('?');
+let VARS = {};
+if (uri.length == 2) {
+    let vars = uri[1].split('&');
+    let tmp = '';
+    vars.forEach(function(v){
+        tmp = v.split('=');
+        if(tmp.length == 2) {
+            VARS[tmp[0]] = tmp[1];
+        }   
+    });
+}
 var modalIdGroup = '';
 var app = new Vue({
     el: '#app',
@@ -166,6 +178,7 @@ var groups = new vis.DataSet([]);
 
 var timeline = null;
 var container = document.getElementById("TimeLine");
+var customTimeHour = moment();
 timeline = new vis.Timeline(container);
 timeline.setGroups(groups);
 timeline.setItems(items);
@@ -181,24 +194,47 @@ function updateOptions() {
         start: getMoment().hours(7).minutes(0).seconds(0).milliseconds(0),
         end: getMoment().hours(21).minutes(0).seconds(0).milliseconds(0),
         zoomMin: 1000 * 60 * 60 * 14,
-        zoomMax: 1000 * 60 * 60 * 14
+        zoomMax: 1000 * 60 * 60 * 14,
+        snap: function (date, scale, step) {
+            const hour = 60 * 1000;
+            return Math.round(date / hour) * hour;
+        }
     };
     timeline.setOptions(options);
     timeline.fit();
 }
 updateOptions();
+makeATestGrid();
 function addOffSet() {
     timeSheetDayOffset = timeSheetDayOffset + 1;
     updateOptions();
+    makeATestGrid();
     load();
 }
 function subOffSet() {
     timeSheetDayOffset = timeSheetDayOffset - 1;
     updateOptions();
+    makeATestGrid();
     load();
 }
 function getMoment() {
-    return moment().add(timeSheetDayOffset, 'days');
+    if (VARS && VARS.test && VARS.test==='OK') {
+        return moment(customTimeHour);
+    } else {
+        return moment().add(timeSheetDayOffset, 'days');
+    }
+}
+function makeATestGrid() {
+    if (VARS && VARS.test && VARS.test==='OK') {
+        timeline.off('currentTimeTick', actionFired);
+        customTimeHour = getMoment().hours(10).minutes(0).seconds(0).milliseconds(0);
+        actionFired();
+        timeline.addCustomTime(customTimeHour, 'customTimeToTest');
+        timeline.on('timechange', function (properties) {
+            customTimeHour = properties.time;
+            actionFired(properties);
+        });
+    }
 }
 function orderGroupsBySumWork() {
     groups.forEach(function (group) {
@@ -254,30 +290,28 @@ function actionFired(properties) {
     results.forEach(function (item) {
         var hoje = moment().format("YYYYMMDD");
         var dia = item.start.format("YYYYMMDD");
-        if (hoje === dia) {
-            item.end = getMoment();
-            group = getGroupById(item.group);
-            var objectCanBreak = canBreak(group.id);
-            var cb = (objectCanBreak.canBreak || objectCanBreak.canLunch);
-            var diffMinutes = item.end.diff(item.start, 'minutes');
-            if (cb && group.className != 'toBreak90' && item.typeOfWork === 'Work' && diffMinutes >= 90 && diffMinutes < 120) {
-                group.className = 'toBreak90';
-                groups.update(group);
-            } else if (cb && group.className != 'toBreak120' && item.typeOfWork === 'Work' && diffMinutes >= 120 && diffMinutes < 150) {
-                group.className = 'toBreak120';
-                groups.update(group);
-            } else if (cb && group.className != 'toBreak150' && item.typeOfWork === 'Work' && diffMinutes >= 150) {
-                group.className = 'toBreak150';
-                groups.update(group);
-            } else if (group.className != 'p' && item.typeOfWork === 'Work' && diffMinutes < 90) {
-                group.className = 'p';
-                groups.update(group);
-            } else if (group.className === 'p' && item.typeOfWork != 'Work') {
-                group.className = 'p';
-                groups.update(group);
-            }
-            items.update(item);
+        item.end =(VARS && VARS.test && VARS.test==='OK') ? moment(customTimeHour): getMoment();
+        group = getGroupById(item.group);
+        var objectCanBreak = canBreak(group.id);
+        var cb = (objectCanBreak.canBreak || objectCanBreak.canLunch);
+        var diffMinutes = item.end.diff(item.start, 'minutes');
+        if (cb && group.className != 'toBreak90' && item.typeOfWork === 'Work' && diffMinutes >= 90 && diffMinutes < 120) {
+            group.className = 'toBreak90';
+            groups.update(group);
+        } else if (cb && group.className != 'toBreak120' && item.typeOfWork === 'Work' && diffMinutes >= 120 && diffMinutes < 150) {
+            group.className = 'toBreak120';
+            groups.update(group);
+        } else if (cb && group.className != 'toBreak150' && item.typeOfWork === 'Work' && diffMinutes >= 150) {
+            group.className = 'toBreak150';
+            groups.update(group);
+        } else if (group.className != 'p' && item.typeOfWork === 'Work' && diffMinutes < 90) {
+            group.className = 'p';
+            groups.update(group);
+        } else if (group.className === 'p' && item.typeOfWork != 'Work') {
+            group.className = 'p';
+            groups.update(group);
         }
+        items.update(item);
     });
     showGroupStatus();
 }
@@ -339,6 +373,9 @@ function canBreak(groupId) {
             result.canLunch = totalLunch < 1 && totalTimeBreak < 30;
         }
         result.note = "S(" + itemShift + ") W(" + totalTimeWork + ") L(" + (result.canLunch ? "Y" : "N") + "," + totalLunch + ") B(" + (result.canBreak ? "Y" : "N") + "," + totalBreak + ":" + totalTimeBreak + ")";
+    }
+    if (VARS && VARS.test && VARS.test==='OK') {
+        console.log(result);
     }
     return result;
 }
@@ -787,82 +824,4 @@ function load() {
     timeline.fit();
 }
 
-function loadNamesFromFile(ev) {
-    var file = ev.target.files[0];
-    var reader = new FileReader();
-    reader.onload = function (e) {
-        var content = e.target.result;
-        var splittedLines = content.split("\n");
-        var collection = [];
-        splittedLines.forEach(function (employee) {
-            var objects = employee.split("|");
-            if ((objects != null && objects.length > 2) && (objects[0] != "" || object[2] != null)) {
-                var obj = {};
-                obj.id = objects[0];
-                obj.employeeName = objects[2];
-                obj.sector = objects[12];
-                collection.push(obj);
-            }
-        });
-        app.daySheet = collection;
-    };
-    reader.readAsText(file);
-}
-
-function loadDaySheetFromFile(ev) {
-    var file = ev.target.files[0];
-    var reader = new FileReader();
-    reader.onload = function (e) {
-        var content = e.target.result;
-        var splittedLines = content.split("\n");
-        splittedLines.forEach(function (sheet) {
-            var objects = sheet.split("|");
-            var obj = {};
-            app.daySheet.forEach(function (daySheet) {
-                if (daySheet.id === objects[1]) {
-                    obj = daySheet;
-                }
-            });
-            obj.start = objects[3];
-            obj.end = objects[5];
-            obj.pushBack = objects[2];
-            obj.sectorDay = objects[11];
-            obj.canceled = objects[10];
-        });
-    };
-    reader.readAsText(file);
-}
-
-function loadFromFiles() {
-    app.daySheet.forEach(function (item) {
-        if (typeof item.start != 'undefined') {
-            var horaInicial = parseInt(item.start.substr(0, 2));
-            var minutoInicial = parseInt(item.start.substr(2, 2));
-            var horaFinal = parseInt(item.end.substr(0, 2));
-            var minutoFinal = parseInt(item.end.substr(2, 2));
-            var horaInicialPush = parseInt(item.pushBack.substr(0, 2));
-            var diff = horaInicialPush - horaInicial;
-            var sector = typeof item.sector != 'undefined' ? item.sector : 'Wipedown';
-            if (sector == "Cash_Sales") {
-                sector = "Cash and Sale";
-            } else if (sector == "Management") {
-                sector = "Wipedown";
-            }
-            if (item.sectorDay != " ") {
-                if (item.sectorDay == "P") {
-                    sector = "Prep";
-                }
-            }
-            if (item.canceled != "C" && item.canceled != "S") {
-                var existe = groups.get(item.id);
-                if (existe == null) {
-                    var idEmp = adicionar(item.employeeName, sector, item.id, horaInicial, minutoInicial, horaFinal, minutoFinal);
-                    if (diff > 0) {
-                        pushback(idEmp, diff);
-                    }
-                }
-            }
-        }
-    });
-}
 load();
